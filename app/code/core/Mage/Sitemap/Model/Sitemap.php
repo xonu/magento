@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Sitemap
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -24,6 +30,7 @@
  *
  * @category   Mage
  * @package    Mage_Sitemap
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Sitemap_Model_Sitemap extends Mage_Core_Model_Abstract
 {
@@ -42,6 +49,42 @@ class Mage_Sitemap_Model_Sitemap extends Mage_Core_Model_Abstract
         $this->_init('sitemap/sitemap');
     }
 
+    protected function _beforeSave()
+    {
+        $io = new Varien_Io_File();
+        $realPath = $io->getCleanPath(Mage::getBaseDir() . '/' . $this->getSitemapPath());
+
+        /**
+         * Check path is allow
+         */
+        if (!$io->allowedPath($realPath, Mage::getBaseDir())) {
+            Mage::throwException(Mage::helper('sitemap')->__('Please define correct path'));
+        }
+        /**
+         * Check exists and writeable path
+         */
+        if (!$io->fileExists($realPath, false)) {
+            Mage::throwException(Mage::helper('sitemap')->__('Please create the specified folder "%s" before saving the sitemap.', file_exists($realPath)));
+        }
+
+        if (!$io->isWriteable($realPath)) {
+            Mage::throwException(Mage::helper('sitemap')->__('Please make sure that "%s" is writable by web-server.', $this->getSitemapPath()));
+        }
+        /**
+         * Check allow filename
+         */
+        if (!preg_match('#^[a-zA-Z0-9_\.]+$#', $this->getSitemapFilename())) {
+            Mage::throwException(Mage::helper('sitemap')->__('Please use only letters (a-z or A-Z), numbers (0-9) or underscore (_) in the filename. No spaces or other characters are allowed.'));
+        }
+        if (!preg_match('#\.xml$#', $this->getSitemapFilename())) {
+            $this->setSitemapFilename($this->getSitemapFilename() . '.xml');
+        }
+
+        $this->setSitemapPath(rtrim(str_replace(str_replace('\\', '/', Mage::getBaseDir()), '', $realPath), '/') . '/');
+
+        return parent::_beforeSave();
+    }
+
     /**
      * Return real file path
      *
@@ -50,17 +93,27 @@ class Mage_Sitemap_Model_Sitemap extends Mage_Core_Model_Abstract
     protected function getPath()
     {
         if (is_null($this->_filePath)) {
-            $this->_filePath = str_replace('//', '/', Mage::getBaseDir('base') . '/'
-                . $this->getSitemapPath());
+            $this->_filePath = str_replace('//', '/', Mage::getBaseDir() .
+                $this->getSitemapPath());
         }
         return $this->_filePath;
     }
 
+    /**
+     * Generate XML file
+     *
+     * @return Mage_Sitemap_Model_Sitemap
+     */
     public function generateXml()
     {
         $io = new Varien_Io_File();
         $io->setAllowCreateFolders(true);
         $io->open(array('path' => $this->getPath()));
+
+        if ($io->fileExists($this->getSitemapFilename()) && !$io->isWriteable($this->getSitemapFilename())) {
+            Mage::throwException(Mage::helper('sitemap')->__('File "%s" cannot be saved. Please, make sure the directory "%s" is writeable by web server.', $this->getSitemapFilename(), $this->getPath()));
+        }
+
         $io->streamOpen($this->getSitemapFilename());
 
         $io->streamWrite('<?xml version="1.0" encoding="UTF-8"?>' . "\n");

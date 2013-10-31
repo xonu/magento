@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_SalesRule
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -46,44 +52,40 @@ class Mage_SalesRule_Model_Observer
             return $this;
         }
 
-        $customerId = $order->getCustomerId();
-
-        /**
-         * If guest checkout for example
-         */
-        if (!$customerId) {
-            return $this;
-        }
-
+        // lookup rule ids
         $ruleIds = explode(',', $order->getAppliedRuleIds());
         $ruleIds = array_unique($ruleIds);
 
-        $rule = Mage::getModel('salesrule/rule');
-        $ruleCustomer = Mage::getModel('salesrule/rule_customer');
+        $ruleCustomer = null;
+        $customerId = $order->getCustomerId();
 
+        // use each rule (and apply to customer, if applicable)
         foreach ($ruleIds as $ruleId) {
             if (!$ruleId) {
                 continue;
             }
-
+            $rule = Mage::getModel('salesrule/rule');
             $rule->load($ruleId);
             if ($rule->getId()) {
                 $rule->setTimesUsed($rule->getTimesUsed() + 1);
                 $rule->save();
-            }
 
-            $ruleCustomer->loadByCustomerRule($customerId, $ruleId);
+                if ($customerId) {
+                    $ruleCustomer = Mage::getModel('salesrule/rule_customer');
+                    $ruleCustomer->loadByCustomerRule($customerId, $ruleId);
 
-            if ($ruleCustomer->getId()) {
-                $ruleCustomer->setTimesUsed($ruleCustomer->getTimesUsed()+1);
+                    if ($ruleCustomer->getId()) {
+                        $ruleCustomer->setTimesUsed($ruleCustomer->getTimesUsed()+1);
+                    }
+                    else {
+                        $ruleCustomer
+                        ->setCustomerId($customerId)
+                        ->setRuleId($ruleId)
+                        ->setTimesUsed(1);
+                    }
+                    $ruleCustomer->save();
+                }
             }
-            else {
-                $ruleCustomer
-                ->setCustomerId($customerId)
-                ->setRuleId($ruleId)
-                ->setTimesUsed(1);
-            }
-            $ruleCustomer->save();
         }
     }
 }

@@ -3,16 +3,22 @@
  *
  * NOTICE OF LICENSE
  *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
+ * This source file is subject to the Academic Free License (AFL 3.0)
+ * that is bundled with this package in the file LICENSE_AFL.txt.
  * It is also available through the world-wide-web at this URL:
- * http://opensource.org/licenses/osl-3.0.php
+ * http://opensource.org/licenses/afl-3.0.php
  * If you did not receive a copy of the license and are unable to
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
- * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @license    http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
  */
 
 if(!window.Flex) {
@@ -31,7 +37,7 @@ if(!window.Flex) {
         fileProgressTemplate:null,
         templatesPattern: /(^|.|\r|\n)(\{\{(.*?)\}\})/,
         onFilesComplete: false,
-        onFileProgress: false,
+        onFileProgress: true,
         onFileRemove: false,
         initialize: function(containerId, uploaderSrc, config) {
             this.containerId = containerId;
@@ -42,19 +48,22 @@ if(!window.Flex) {
             this.config = config;
 
             this.flexContainerId = this.containerId + '-flash';
-            new Insertion.Top(
-                window.document.body,
-                '<div id="'+this.flexContainerId+'" class="flex" style="position:absolute;"></div>'
+            Element.insert(
+                // window.document.body,
+                this.containerId,
+                {'before':'<div id="'+this.flexContainerId+'" class="flex" style="position:relative;"></div>'}
             );
 
             this.flex = new Flex.Object({
-                width:  1,
-                height: 1,
-                src:    uploaderSrc,
-                wmode: 'transparent'
+                left: 100,
+                top: 300,
+                width:  230,
+                height: 20,
+                src:    uploaderSrc
+                // wmode: 'transparent'
             });
-            this.getInnerElement('browse').disabled = true;
-            this.getInnerElement('upload').disabled = true;
+            // this.getInnerElement('browse').disabled = true;
+            // this.getInnerElement('upload').disabled = true;
             this.fileRowTemplate = new Template(
                 this.getInnerElement('template').innerHTML,
                 this.templatesPattern
@@ -69,8 +78,8 @@ if(!window.Flex) {
             if (this.flex.detectFlashVersion(9, 0, 28)) {
                 this.flex.apply(this.flexContainerId);
             } else {
-                this.getInnerElement('browse').hide();
-                this.getInnerElement('upload').hide();
+                // this.getInnerElement('browse').hide();
+                // this.getInnerElement('upload').hide();
                 this.getInnerElement('install-flash').show();
             }
         },
@@ -104,8 +113,8 @@ if(!window.Flex) {
             this.uploader.addEventListener('complete',  this.handleComplete.bind(this));
             this.uploader.addEventListener('progress',  this.handleProgress.bind(this));
             this.uploader.addEventListener('error',     this.handleError.bind(this));
-            this.getInnerElement('browse').disabled = false;
-            this.getInnerElement('upload').disabled = false;
+            // this.getInnerElement('browse').disabled = false;
+            // this.getInnerElement('upload').disabled = false;
         },
         browse: function() {
             this.uploader.browse();
@@ -128,9 +137,10 @@ if(!window.Flex) {
             this.getInnerElement('upload').show();
         },
         handleProgress: function (event) {
-            this.updateFile(event.getData().file);
+            var file = event.getData().file;
+            this.updateFile(file);
             if (this.onFileProgress) {
-                this.onFileProgress(event.getData().file);
+                this.onFileProgress(file);
             }
         },
         handleError: function (event) {
@@ -154,11 +164,28 @@ if(!window.Flex) {
         },
         updateFile:  function (file) {
             if (!$(this.getFileId(file))) {
-                new Insertion.Bottom(
-                    this.container,
-                    this.fileRowTemplate.evaluate(this.getFileVars(file))
-                );
+                Element.insert(this.container, {bottom: this.fileRowTemplate.evaluate(this.getFileVars(file))});
             }
+            if (file.status == 'full_complete' && file.response.isJSON()) {
+                var response = file.response.evalJSON();
+                if (typeof response == 'object') {
+                    if (typeof response.cookie == 'object') {
+                        var date = new Date();
+                        date.setTime(date.getTime()+(parseInt(response.cookie.lifetime)*1000));
+
+                        document.cookie = escape(response.cookie.name) + "="
+                            + escape(response.cookie.value)
+                            + "; expires=" + date.toGMTString()
+                            + (response.cookie.path.blank() ? "" : "; path=" + response.cookie.path)
+                            + (response.cookie.domain.blank() ? "" : "; domain=" + response.cookie.domain);
+                    }
+                    if (typeof response.error != 'undefined') {
+                        file.status = 'error';
+                        file.errorText = response.error;
+                    }
+                }
+            }
+
             var progress = $(this.getFileId(file)).getElementsByClassName('progress-text')[0];
             if ((file.status=='progress') || (file.status=='complete')) {
                 $(this.getFileId(file)).addClassName('progress');
@@ -174,7 +201,8 @@ if(!window.Flex) {
                 $(this.getFileId(file)).addClassName('error');
                 $(this.getFileId(file)).removeClassName('progress');
                 $(this.getFileId(file)).removeClassName('new');
-                progress.update(this.errorText(file));
+                var errorText = file.errorText ? file.errorText : this.errorText(file);
+                progress.update(errorText);
                 this.getDeleteButton(file).show();
             } else if (file.status=='full_complete') {
                 $(this.getFileId(file)).addClassName('complete');
@@ -241,8 +269,8 @@ if(!window.Flex) {
                 case 4: // Security error
                     error = 'Upload Security Error';
                     break;
-                case 5: // SSL self-signed sertificate
-                    error = 'SSL Error: Invalid or self-signed sertificate';
+                case 5: // SSL self-signed certificate
+                    error = 'SSL Error: Invalid or self-signed certificate';
                     break;
             }
 

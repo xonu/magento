@@ -12,15 +12,22 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Customer
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
 /**
  * Customer register form block
  *
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Customer_Block_Form_Register extends Mage_Directory_Block_Data
 {
@@ -29,7 +36,7 @@ class Mage_Customer_Block_Form_Register extends Mage_Directory_Block_Data
         $this->getLayout()->getBlock('head')->setTitle(Mage::helper('customer')->__('Create New Customer Account'));
         return parent::_prepareLayout();
     }
-    
+
     /**
      * Retrieve form posting url
      *
@@ -39,7 +46,7 @@ class Mage_Customer_Block_Form_Register extends Mage_Directory_Block_Data
     {
         return $this->helper('customer')->getRegisterPostUrl();
     }
-    
+
     /**
      * Retrieve back url
      *
@@ -53,7 +60,7 @@ class Mage_Customer_Block_Form_Register extends Mage_Directory_Block_Data
         }
         return $url;
     }
-    
+
     /**
      * Retrieve form data
      *
@@ -68,7 +75,7 @@ class Mage_Customer_Block_Form_Register extends Mage_Directory_Block_Data
         }
         return $data;
     }
-    
+
     /**
      * Retrieve customer country identifier
      *
@@ -96,5 +103,16 @@ class Mage_Customer_Block_Form_Register extends Mage_Directory_Block_Data
             return $region;
         }
         return null;
+    }
+
+    /**
+     *  Newsletter module availability
+     *
+     *  @param    none
+     *  @return	  boolean
+     */
+    public function isNewsletterEnabled()
+    {
+        return !Mage::getStoreConfigFlag('advanced/modules_disable_output/Mage_Newsletter');
     }
 }

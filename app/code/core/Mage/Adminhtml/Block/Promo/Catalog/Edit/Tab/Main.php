@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Adminhtml
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -24,6 +30,7 @@
  * @category    Mage
  * @category   Mage
  * @package    Mage_Adminhtml
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Adminhtml_Block_Promo_Catalog_Edit_Tab_Main extends Mage_Adminhtml_Block_Widget_Form
 {
@@ -112,18 +119,22 @@ class Mage_Adminhtml_Block_Promo_Catalog_Edit_Tab_Main extends Mage_Adminhtml_Bl
             'values'    => $customerGroups,
         ));
 
+        $dateFormatIso = Mage::app()->getLocale()->getDateFormat(Mage_Core_Model_Locale::FORMAT_TYPE_SHORT);
     	$fieldset->addField('from_date', 'date', array(
-            'name' => 'from_date',
-            'label' => Mage::helper('catalogrule')->__('From Date'),
-            'title' => Mage::helper('catalogrule')->__('From Date'),
-            'image' => $this->getSkinUrl('images/grid-cal.gif'),
+            'name'   => 'from_date',
+            'label'  => Mage::helper('catalogrule')->__('From Date'),
+            'title'  => Mage::helper('catalogrule')->__('From Date'),
+            'image'  => $this->getSkinUrl('images/grid-cal.gif'),
+            'input_format' => Varien_Date::DATE_INTERNAL_FORMAT,
+            'format'       => $dateFormatIso
         ));
-
     	$fieldset->addField('to_date', 'date', array(
-            'name' => 'to_date',
-            'label' => Mage::helper('catalogrule')->__('To Date'),
-            'title' => Mage::helper('catalogrule')->__('To Date'),
-            'image' => $this->getSkinUrl('images/grid-cal.gif'),
+            'name'   => 'to_date',
+            'label'  => Mage::helper('catalogrule')->__('To Date'),
+            'title'  => Mage::helper('catalogrule')->__('To Date'),
+            'image'  => $this->getSkinUrl('images/grid-cal.gif'),
+            'input_format' => Varien_Date::DATE_INTERNAL_FORMAT,
+            'format'       => $dateFormatIso
         ));
 
         $fieldset->addField('sort_order', 'text', array(

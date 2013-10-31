@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Sales
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -28,28 +34,37 @@
  *  sales_order_delete_before
  *  sales_order_delete_after
  *
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Sales_Model_Order extends Mage_Core_Model_Abstract
 {
     /**
      * XML configuration paths
      */
-    const XML_PATH_NEW_ORDER_EMAIL_TEMPLATE     = 'sales_email/order/template';
-    const XML_PATH_NEW_ORDER_EMAIL_IDENTITY     = 'sales_email/order/identity';
-    const XML_PATH_NEW_ORDER_EMAIL_COPY_TO      = 'sales_email/order/copy_to';
-    const XML_PATH_UPDATE_ORDER_EMAIL_TEMPLATE  = 'sales_email/order_comment/template';
-    const XML_PATH_UPDATE_ORDER_EMAIL_IDENTITY  = 'sales_email/order_comment/identity';
-    const XML_PATH_UPDATE_ORDER_EMAIL_COPY_TO   = 'sales_email/order_comment/copy_to';
+    const XML_PATH_EMAIL_TEMPLATE               = 'sales_email/order/template';
+    const XML_PATH_EMAIL_GUEST_TEMPLATE         = 'sales_email/order/guest_template';
+    const XML_PATH_EMAIL_IDENTITY               = 'sales_email/order/identity';
+    const XML_PATH_EMAIL_COPY_TO                = 'sales_email/order/copy_to';
+    const XML_PATH_EMAIL_COPY_METHOD            = 'sales_email/order/copy_method';
+    const XML_PATH_EMAIL_ENABLED                = 'sales_email/order/enabled';
+
+    const XML_PATH_UPDATE_EMAIL_TEMPLATE        = 'sales_email/order_comment/template';
+    const XML_PATH_UPDATE_EMAIL_GUEST_TEMPLATE  = 'sales_email/order_comment/guest_template';
+    const XML_PATH_UPDATE_EMAIL_IDENTITY        = 'sales_email/order_comment/identity';
+    const XML_PATH_UPDATE_EMAIL_COPY_TO         = 'sales_email/order_comment/copy_to';
+    const XML_PATH_UPDATE_EMAIL_COPY_METHOD     = 'sales_email/order_comment/copy_method';
+    const XML_PATH_UPDATE_EMAIL_ENABLED         = 'sales_email/order_comment/enabled';
 
     /**
      * Order states
      */
-    const STATE_NEW        = 'new';
-    const STATE_PROCESSING = 'processing';
-    const STATE_COMPLETE   = 'complete';
-    const STATE_CLOSED     = 'closed';
-    const STATE_CANCELED   = 'canceled';
-    const STATE_HOLDED     = 'holded';
+    const STATE_NEW             = 'new';
+    const STATE_PENDING_PAYMENT = 'pending_payment';
+    const STATE_PROCESSING      = 'processing';
+    const STATE_COMPLETE        = 'complete';
+    const STATE_CLOSED          = 'closed';
+    const STATE_CANCELED        = 'canceled';
+    const STATE_HOLDED          = 'holded';
 
     protected $_eventPrefix = 'sales_order';
     protected $_eventObject = 'order';
@@ -155,7 +170,6 @@ class Mage_Sales_Model_Order extends Mage_Core_Model_Abstract
         if ($this->canUnhold()) {
             return false;
         }
-
         if ($this->getState() === self::STATE_CANCELED ||
             $this->getState() === self::STATE_COMPLETE ||
             $this->getState() === self::STATE_CLOSED ) {
@@ -187,23 +201,15 @@ class Mage_Sales_Model_Order extends Mage_Core_Model_Abstract
         }
 
         /**
-         * need use int, becose $a=762.73;$b=762.73; $a-$b!=0;
+         * We can have problem with float in php (on some server $a=762.73;$b=762.73; $a-$b!=0)
+         * for this we have additional diapason for 0
          */
-        $paidCompare = (int) ($this->getTotalPaid() * 1000000);
-        $refundedCompare = (int) ($this->getTotalRefunded() * 1000000);
-        if ($paidCompare>$refundedCompare) {
-            return true;
-        }
-        /**
-         * Moshe: another solution
-         */
-        /*
         if (abs($this->getTotalPaid()-$this->getTotalRefunded())<.0001) {
-            return true;
+            return false;
         }
-        */
 
-        return false;
+
+        return true;
     }
 
     /**
@@ -244,8 +250,12 @@ class Mage_Sales_Model_Order extends Mage_Core_Model_Abstract
             return false;
         }
 
+        if ($this->getIsVirtual()) {
+            return false;
+        }
+
         foreach ($this->getAllItems() as $item) {
-            if ($item->getQtyToShip()>0) {
+            if ($item->getQtyToShip()>0 && !$item->getIsVirtual()) {
                 return true;
             }
         }
@@ -266,6 +276,10 @@ class Mage_Sales_Model_Order extends Mage_Core_Model_Abstract
         if ($this->getState() === self::STATE_CANCELED ||
             $this->getState() === self::STATE_COMPLETE ||
             $this->getState() === self::STATE_CLOSED) {
+            return false;
+        }
+
+        if (!$this->getPayment()->getMethodInstance()->canEdit()) {
             return false;
         }
         return true;
@@ -404,17 +418,20 @@ class Mage_Sales_Model_Order extends Mage_Core_Model_Abstract
     /**
      * Declare order state
      *
-     * @param   string $state
+     * @param string $state
+     * @param string $status
+     * @param string $comment
+     * @param bool $isCustomerNotified
      * @return  Mage_Sales_Model_Order
      */
-    public function setState($state, $status=false)
+    public function setState($state, $status = false, $comment = '', $isCustomerNotified = false)
     {
         $this->setData('state', $state);
         if ($status) {
             if ($status === true) {
                 $status = $this->getConfig()->getStateDefaultStatus($state);
             }
-            $this->addStatusToHistory($status);
+            $this->addStatusToHistory($status, $comment, $isCustomerNotified);
         }
         return $this;
     }
@@ -437,7 +454,7 @@ class Mage_Sales_Model_Order extends Mage_Core_Model_Abstract
      * @param   boolean $is_customer_notified
      * @return  Mage_Sales_Model_Order
      */
-    public function addStatusToHistory($status, $comment='', $isCustomerNotified=false)
+    public function addStatusToHistory($status, $comment='', $isCustomerNotified = false)
     {
         $status = Mage::getModel('sales/order_status_history')
             ->setStatus($status)
@@ -551,28 +568,67 @@ class Mage_Sales_Model_Order extends Mage_Core_Model_Abstract
      */
     public function sendNewOrderEmail()
     {
-        $itemsBlock = Mage::getBlockSingleton('sales/order_email_items')->setOrder($this);
-        $paymentBlock = Mage::helper('payment')->getInfoBlock($this->getPayment());
+        if (!Mage::helper('sales')->canSendNewOrderEmail($this->getStore()->getId())) {
+            return $this;
+        }
+
+        $translate = Mage::getSingleton('core/translate');
+        /* @var $translate Mage_Core_Model_Translate */
+        $translate->setTranslateInline(false);
+
+        $paymentBlock = Mage::helper('payment')->getInfoBlock($this->getPayment())
+            ->setIsSecureMode(true);
 
         $mailTemplate = Mage::getModel('core/email_template');
         /* @var $mailTemplate Mage_Core_Model_Email_Template */
-        if ($bcc = $this->_getEmails(self::XML_PATH_NEW_ORDER_EMAIL_COPY_TO)) {
-            $mailTemplate->addBcc($bcc);
+        $copyTo = $this->_getEmails(self::XML_PATH_EMAIL_COPY_TO);
+        $copyMethod = Mage::getStoreConfig(self::XML_PATH_EMAIL_COPY_METHOD, $this->getStoreId());
+        if ($copyTo && $copyMethod == 'bcc') {
+            foreach ($copyTo as $email) {
+                $mailTemplate->addBcc($email);
+            }
         }
 
-        $mailTemplate->setDesignConfig(array('area'=>'frontend', 'store'=>$this->getStoreId()))
-            ->sendTransactional(
-                Mage::getStoreConfig(self::XML_PATH_NEW_ORDER_EMAIL_TEMPLATE, $this->getStoreId()),
-                Mage::getStoreConfig(self::XML_PATH_NEW_ORDER_EMAIL_IDENTITY, $this->getStoreId()),
-                $this->getCustomerEmail(),
-                $this->getBillingAddress()->getName(),
-                array(
-                  'order'       => $this,
-                  'billing'     => $this->getBillingAddress(),
-                  'payment_html'=> $paymentBlock->toHtml(),
-                  'items_html'  => $itemsBlock->toHtml(),
-                )
-            );
+        if ($this->getCustomerIsGuest()) {
+            $template = Mage::getStoreConfig(self::XML_PATH_EMAIL_GUEST_TEMPLATE, $this->getStoreId());
+            $customerName = $this->getBillingAddress()->getName();
+        } else {
+            $template = Mage::getStoreConfig(self::XML_PATH_EMAIL_TEMPLATE, $this->getStoreId());
+            $customerName = $this->getCustomerName();
+        }
+
+        $sendTo = array(
+            array(
+                'email' => $this->getCustomerEmail(),
+                'name'  => $customerName
+            )
+        );
+        if ($copyTo && $copyMethod == 'copy') {
+            foreach ($copyTo as $email) {
+                $sendTo[] = array(
+                    'email' => $email,
+                    'name'  => null
+                );
+            }
+        }
+
+        foreach ($sendTo as $recipient) {
+            $mailTemplate->setDesignConfig(array('area'=>'frontend', 'store'=>$this->getStoreId()))
+                ->sendTransactional(
+                    $template,
+                    Mage::getStoreConfig(self::XML_PATH_EMAIL_IDENTITY, $this->getStoreId()),
+                    $recipient['email'],
+                    $recipient['name'],
+                    array(
+                        'order'         => $this,
+                        'billing'       => $this->getBillingAddress(),
+                        'payment_html'  => $paymentBlock->toHtml(),
+                    )
+                );
+        }
+
+        $translate->setTranslateInline(true);
+
         return $this;
     }
 
@@ -583,32 +639,81 @@ class Mage_Sales_Model_Order extends Mage_Core_Model_Abstract
      */
     public function sendOrderUpdateEmail($notifyCustomer=true, $comment='')
     {
-        $bcc = $this->_getEmails(self::XML_PATH_UPDATE_ORDER_EMAIL_COPY_TO);
-        if (!$notifyCustomer && !$bcc) {
+        if (!Mage::helper('sales')->canSendOrderCommentEmail($this->getStore()->getId())) {
             return $this;
         }
 
-        $mailTemplate = Mage::getModel('core/email_template');
-        if ($notifyCustomer) {
-            $customerEmail = $this->getCustomerEmail();
-            $mailTemplate->addBcc($bcc);
-        }
-        else {
-            $customerEmail = $bcc;
+        $copyTo = $this->_getEmails(self::XML_PATH_UPDATE_EMAIL_COPY_TO);
+        $copyMethod = Mage::getStoreConfig(self::XML_PATH_UPDATE_EMAIL_COPY_METHOD, $this->getStoreId());
+        if (!$notifyCustomer && !$copyTo) {
+            return $this;
         }
 
-        $mailTemplate->setDesignConfig(array('area'=>'frontend', 'store' => $this->getStoreId()))
-            ->sendTransactional(
-                Mage::getStoreConfig(self::XML_PATH_UPDATE_ORDER_EMAIL_TEMPLATE, $this->getStoreId()),
-                Mage::getStoreConfig(self::XML_PATH_UPDATE_ORDER_EMAIL_IDENTITY, $this->getStoreId()),
-                $customerEmail,
-                $this->getBillingAddress()->getName(),
-                array(
-                    'order'=>$this,
-                    'billing'=>$this->getBillingAddress(),
-                    'comment'=>$comment
-                )
+        // set design parameters, required for email (remember current)
+        $currentDesign = Mage::getDesign()->setAllGetOld(array(
+            'store'   => $this->getStoreId(),
+            'area'    => 'frontend',
+            'package' => Mage::getStoreConfig('design/package/name', $this->getStoreId()),
+        ));
+
+        $translate = Mage::getSingleton('core/translate');
+        /* @var $translate Mage_Core_Model_Translate */
+        $translate->setTranslateInline(false);
+
+        $sendTo = array();
+
+        $mailTemplate = Mage::getModel('core/email_template');
+
+        if ($this->getCustomerIsGuest()) {
+            $template = Mage::getStoreConfig(self::XML_PATH_UPDATE_EMAIL_GUEST_TEMPLATE, $this->getStoreId());
+            $customerName = $this->getBillingAddress()->getName();
+        } else {
+            $template = Mage::getStoreConfig(self::XML_PATH_UPDATE_EMAIL_TEMPLATE, $this->getStoreId());
+            $customerName = $this->getCustomerName();
+        }
+
+        if ($notifyCustomer) {
+            $sendTo[] = array(
+                'name'  => $customerName,
+                'email' => $this->getCustomerEmail()
             );
+            if ($copyTo && $copyMethod == 'bcc') {
+                foreach ($copyTo as $email) {
+                    $mailTemplate->addBcc($email);
+                }
+            }
+
+        }
+
+        if ($copyTo && ($copyMethod == 'copy' || !$notifyCustomer)) {
+            foreach ($copyTo as $email) {
+                $sendTo[] = array(
+                    'name'  => null,
+                    'email' => $email
+                );
+            }
+        }
+
+        foreach ($sendTo as $recipient) {
+            $mailTemplate->setDesignConfig(array('area'=>'frontend', 'store' => $this->getStoreId()))
+                ->sendTransactional(
+                    $template,
+                    Mage::getStoreConfig(self::XML_PATH_UPDATE_EMAIL_IDENTITY, $this->getStoreId()),
+                    $recipient['email'],
+                    $recipient['name'],
+                    array(
+                        'order'     => $this,
+                        'billing'   => $this->getBillingAddress(),
+                        'comment'   => $comment
+                    )
+                );
+        }
+
+        $translate->setTranslateInline(true);
+
+        // revert current design
+        Mage::getDesign()->setAllGetOld($currentDesign);
+
         return $this;
     }
 
@@ -659,14 +764,17 @@ class Mage_Sales_Model_Order extends Mage_Core_Model_Abstract
         return $this;
     }
 
-/*********************** ITEMS ***************************/
-
-    public function getItemsCollection()
+    public function getItemsCollection($filterByTypes = array(), $nonChildrenOnly = false)
     {
         if (is_null($this->_items)) {
             $this->_items = Mage::getResourceModel('sales/order_item_collection')
-                ->addAttributeToSelect('*')
                 ->setOrderFilter($this->getId());
+            if ($filterByTypes) {
+                $this->_items->filterByTypes($filterByTypes);
+            }
+            if ($nonChildrenOnly) {
+                $this->_items->filterByParent();
+            }
 
             if ($this->getId()) {
                 foreach ($this->_items as $item) {
@@ -680,11 +788,9 @@ class Mage_Sales_Model_Order extends Mage_Core_Model_Abstract
     public function getItemsRandomCollection($limit=1)
     {
         $collection = Mage::getModel('sales/order_item')->getCollection()
-            ->addAttributeToSelect('*')
             ->setOrderFilter($this->getId())
-            ->setOrder('RAND()')
-            ->setPageSize($limit)
-            ->load();
+            ->setRandomOrder()
+            ->setPageSize($limit);
 
         $products = array();
         foreach ($collection as $item) {
@@ -695,6 +801,8 @@ class Mage_Sales_Model_Order extends Mage_Core_Model_Abstract
             ->getCollection()
             ->addIdFilter($products)
             ->load();
+        Mage::getSingleton('catalog/product_visibility')
+            ->addVisibleInSiteFilterToCollection($productsCollection);
         foreach ($collection as $item) {
             $item->setProduct($productsCollection->getItemById($item->getProductId()));
         }
@@ -712,19 +820,35 @@ class Mage_Sales_Model_Order extends Mage_Core_Model_Abstract
         return $items;
     }
 
+    public function getAllVisibleItems()
+    {
+        $items = array();
+        foreach ($this->getItemsCollection() as $item) {
+            if (!$item->isDeleted() && !$item->getParentItemId()) {
+                $items[] =  $item;
+            }
+        }
+        return $items;
+    }
+
     public function getItemById($itemId)
     {
+        return $this->getItemsCollection()->getItemById($itemId);
+    }
+
+    public function getItemByQuoteItemId($quoteItemId)
+    {
         foreach ($this->getItemsCollection() as $item) {
-            if ($item->getId()==$itemId) {
+            if ($item->getQuoteItemId()==$quoteItemId) {
                 return $item;
             }
         }
-        return false;
+        return null;
     }
 
     public function addItem(Mage_Sales_Model_Order_Item $item)
     {
-        $item->setOrder($this)->setParentId($this->getId());
+        $item->setOrder($this);
         if (!$item->getId()) {
             $this->getItemsCollection()->addItem($item);
         }
@@ -900,11 +1024,12 @@ class Mage_Sales_Model_Order extends Mage_Core_Model_Abstract
      * Retrieve formated price value includeing order rate
      *
      * @param   float $price
+     * @param   bool  $addBrackets
      * @return  string
      */
-    public function formatPrice($price)
+    public function formatPrice($price, $addBrackets = false)
     {
-        return $this->getOrderCurrency()->format($price);
+        return $this->getOrderCurrency()->format($price, array(), true, $addBrackets);
     }
 
     /**
@@ -1007,6 +1132,7 @@ class Mage_Sales_Model_Order extends Mage_Core_Model_Abstract
     {
         if (empty($this->_shipments)) {
             if ($this->getId()) {
+                //TODO: add full name logic
                 $this->_shipments = Mage::getResourceModel('sales/order_shipment_collection')
                     ->addAttributeToSelect('increment_id')
                     ->addAttributeToSelect('created_at')
@@ -1134,6 +1260,16 @@ class Mage_Sales_Model_Order extends Mage_Core_Model_Abstract
         return Mage::getBlockSingleton('core/text')->formatDate($this->getCreatedAt(), $format);
     }
 
+    /**
+     * Retrieve created at store date object
+     *
+     * @return Zend_Date
+     */
+    public function getCreatedAtDate()
+    {
+        return Mage::app()->getLocale()->storeDate($this->getStore(), $this->getCreatedAt(), true);
+    }
+
     public function getEmailCustomerNote()
     {
         if ($this->getCustomerNoteNotify()) {
@@ -1156,6 +1292,18 @@ class Mage_Sales_Model_Order extends Mage_Core_Model_Abstract
             $name = array($store->getWebsite()->getName(),$store->getGroup()->getName(),$store->getName());
             $this->setStoreName(implode("\n", $name));
         }
+
+        /**
+         * Process items dependency for new order
+         */
+        if (!$this->getId()) {
+            foreach ($this->getAllItems() as $item) {
+                if ($parent = $item->getQuoteParentItemId() && !$item->getParentItem()) {
+                    $item->setParentItem($this->getItemByQuoteItemId($parent));
+                }
+            }
+        }
+
         return $this;
     }
 
@@ -1181,16 +1329,171 @@ class Mage_Sales_Model_Order extends Mage_Core_Model_Abstract
             }
         }
 
-        if ($this->getState() == self::STATE_NEW) {
+        if ($this->getState() == self::STATE_NEW && $this->getIsInProcess()) {
             $this->setState(self::STATE_PROCESSING, true);
         }
         return $this;
     }
 
-    public function belongsToCurrentCustomer()
+    public function getStoreGroupName()
     {
-        $customerId = Mage::getSingleton('customer/session')->getCustomerId();
+        $storeId = $this->getStoreId();
+        if (is_null($storeId)) {
+            return $this->getStoreName(1); // 0 - website name, 1 - store group name, 2 - store name
+        }
+        return $this->getStore()->getGroup()->getName();
+    }
 
-        return ($this->getCustomerId() == $customerId && $customerId != 0);
+    /**
+     * Resets all data in object
+     * so after another load it will be complete new object
+     *
+     * @return Mage_Sales_Model_Order
+     */
+    public function reset()
+    {
+        $this->unsetData();
+        $this->_addresses = null;
+        $this->_items = null;
+        $this->_payments = null;
+        $this->_statusHistory = null;
+        $this->_invoices = null;
+        $this->_tracks = null;
+        $this->_shipments = null;
+        $this->_creditmemos = null;
+        $this->_relatedObjects = array();
+        $this->_orderCurrency = null;
+        $this->_storeCurrency = null;
+
+        return $this;
+    }
+
+    public function getIsNotVirtual()
+    {
+        return !$this->getIsVirtual();
+    }
+
+    public function getFullTaxInfo()
+    {
+        $rates = Mage::getModel('sales/order_tax')->getCollection()->loadByOrder($this)->toArray();
+        return Mage::getSingleton('tax/calculation')->reproduceProcess($rates['items']);
+    }
+
+    /**
+     * Create new invoice with maximum qty for invoice for each item
+     *
+     * @return Mage_Sales_Model_Order_Invoice
+     */
+    public function prepareInvoice($qtys = array())
+    {
+        $convertor = Mage::getModel('sales/convert_order');
+        $invoice = $convertor->toInvoice($this);
+        foreach ($this->getAllItems() as $orderItem) {
+            if (!$orderItem->isDummy() && !$orderItem->getQtyToInvoice()) {
+                continue;
+            }
+            if ($orderItem->isDummy() && !$this->_needToAddDummy($orderItem, $qtys)) {
+                continue;
+            }
+            $item = $convertor->itemToInvoiceItem($orderItem);
+            if ($orderItem->isDummy()) {
+                $qty = 1;
+            } else {
+                if (isset($qtys[$orderItem->getId()])) {
+                    $qty = $qtys[$orderItem->getId()];
+                } else {
+                    $qty = $orderItem->getQtyToInvoice();
+                }
+            }
+
+            $item->setQty($qty);
+            $invoice->addItem($item);
+        }
+        $invoice->collectTotals();
+
+        return $invoice;
+    }
+
+    /**
+     * Create new shipment with maximum qty for shipping for each item
+     *
+     * @return Mage_Sales_Model_Order_Shipment
+     */
+    public function prepareShipment($qtys = array())
+    {
+        $totalToShip = 0;
+        $convertor = Mage::getModel('sales/convert_order');
+        $shipment = $convertor->toShipment($this);
+        foreach ($this->getAllItems() as $orderItem) {
+            if (!$orderItem->isDummy() && !$orderItem->getQtyToShip()) {
+                continue;
+            }
+            if ($orderItem->isDummy() && !$this->_needToAddDummy($orderItem, $qtys)) {
+                continue;
+            }
+            $item = $convertor->itemToShipmentItem($orderItem);
+            if ($orderItem->isDummy()) {
+                $qty = 1;
+            } else {
+                if (isset($qtys[$orderItem->getId()])) {
+                    $qty = $qtys[$orderItem->getId()];
+                } else {
+                    $qty = $orderItem->getQtyToShip();
+                }
+            }
+
+            $totalToShip += $qty;
+            $item->setQty($qty);
+            $shipment->addItem($item);
+        }
+
+        if ($totalToShip) {
+            return $shipment;
+        } else {
+            return null;
+        }
+    }
+
+    /**
+     * Decides if we need to create dummy invoice item or not
+     * for eaxample we don't need create dummy parent if all
+     * children are not in process
+     *
+     * @param Mage_Sales_Model_Order_Item $item
+     * @param array $qtys
+     * @return bool
+     */
+    protected function _needToAddDummy($item, $qtys = array()) {
+        if ($item->getHasChildren()) {
+            foreach ($item->getChildrenItems() as $child) {
+                if (empty($qtys)) {
+                    if ($child->getQtyToInvoice() > 0) {
+                        return true;
+                    }
+                } else {
+                    if (isset($qtys[$child->getId()]) && $qtys[$child->getId()] > 0) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        } else if($item->getParentItem()) {
+            if (empty($qtys)) {
+                if ($item->getParentItem()->getQtyToInvoice() > 0) {
+                    return true;
+                }
+            } else {
+                if (isset($qtys[$child->getId()]) && $qtys[$child->getId()] > 0) {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+
+    protected function _beforeDelete()
+    {
+        $this->_protectFromNonAdmin();
+        return parent::_beforeDelete();
     }
 }

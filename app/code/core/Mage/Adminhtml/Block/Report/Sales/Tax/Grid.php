@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Adminhtml
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -23,6 +29,7 @@
  *
  * @category   Mage
  * @package    Mage_Adminhtml
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Adminhtml_Block_Report_Sales_Tax_Grid extends Mage_Adminhtml_Block_Report_Grid
 {
@@ -41,17 +48,25 @@ class Mage_Adminhtml_Block_Report_Sales_Tax_Grid extends Mage_Adminhtml_Block_Re
 
     protected function _prepareColumns()
     {
+        $this->addColumn('tax_title', array(
+            'header'    =>Mage::helper('reports')->__('Tax'),
+            'index'     =>'tax_title',
+            'type'      =>'string'
+        ));
+
         $this->addColumn('tax_rate', array(
-            'header'    =>Mage::helper('reports')->__('Tax Rate'),
+            'header'    =>Mage::helper('reports')->__('Rate'),
             'index'     =>'tax_rate',
-            'type'      =>'number'
+            'type'      =>'number',
+            'width'     =>'100'
         ));
 
         $this->addColumn('orders', array(
             'header'    =>Mage::helper('reports')->__('Number of Orders'),
             'index'     =>'orders',
             'total'     =>'sum',
-            'type'      =>'number'
+            'type'      =>'number',
+            'width'     =>'100'
         ));
 
         $this->addColumn('tax', array(

@@ -132,7 +132,8 @@ Object.extend(Validation, {
             onElementValidate : function(result, elm) {}
         }, options || {});
         elm = $(elm);
-        var cn = elm.classNames();
+
+        var cn = $w(elm.className);
         return result = cn.all(function(value) {
             var test = Validation.test(value,elm,options.useTitle);
             options.onElementValidate(test, elm);
@@ -142,7 +143,7 @@ Object.extend(Validation, {
     insertAdvice : function(elm, advice){
         var container = $(elm).up('.field-row');
         if(container){
-            new Insertion.After(container, advice);
+            Element.insert(container, {after: advice});
         }
         else if (elm.advaiceContainer && $(elm.advaiceContainer)) {
             $(elm.advaiceContainer).update(advice);
@@ -153,13 +154,13 @@ Object.extend(Validation, {
                 case 'radio':
                     var p = elm.parentNode;
                     if(p) {
-                        new Insertion.Bottom(p, advice);
+                        Element.insert(p, {'bottom': advice});
                     } else {
-                        new Insertion.After(elm, advice);
+                        Element.insert(elm, {'after': advice});
                     }
                     break;
                 default:
-                    new Insertion.After(elm, advice);
+                    Element.insert(elm, {'after': advice});
             }
         }
     },
@@ -172,7 +173,7 @@ Object.extend(Validation, {
                 this.hideAdvice(elm, pair.value);
             }.bind(this));
         }
-        elm.advices[adviceName] = advice;
+        elm.advices.set(adviceName, advice);
         if(typeof Effect == 'undefined') {
             advice.style.display = 'block';
         } else {
@@ -194,6 +195,11 @@ Object.extend(Validation, {
     hideAdvice : function(elm, advice){
         if(advice != null) advice.hide();
     },
+    updateCallback : function(elm, status) {
+        if (typeof elm.callbackFunction != 'undefined') {
+            eval(elm.callbackFunction+'(\''+elm.id+'\',\''+status+'\')');
+        }
+    },
     ajaxError : function(elm, errorMsg) {
         var name = 'validate-ajax';
         var advice = Validation.getAdvice(name, elm);
@@ -201,6 +207,8 @@ Object.extend(Validation, {
             advice = this.createAdvice(name, elm, false, errorMsg);
         }
         this.showAdvice(elm, advice, 'validate-ajax');
+        this.updateCallback(elm, 'failed');
+
         elm.addClassName('validation-failed');
         elm.addClassName('validate-ajax');
     },
@@ -215,14 +223,18 @@ Object.extend(Validation, {
                     advice = this.createAdvice(name, elm, useTitle);
                 }
                 this.showAdvice(elm, advice, name);
+                this.updateCallback(elm, 'failed');
             //}
             elm[prop] = 1;
-            elm.removeClassName('validation-passed');
-            elm.addClassName('validation-failed');
+            if (!elm.advaiceContainer) {
+                elm.removeClassName('validation-passed');
+                elm.addClassName('validation-failed');
+            }
             return false;
         } else {
             var advice = Validation.getAdvice(name, elm);
             this.hideAdvice(elm, advice);
+            this.updateCallback(elm, 'passed');
             elm[prop] = '';
             elm.removeClassName('validation-failed');
             elm.addClassName('validation-passed');
@@ -276,7 +288,7 @@ Object.extend(Validation, {
     },
     reset : function(elm) {
         elm = $(elm);
-        var cn = elm.classNames();
+        var cn = $w(elm.className);
         cn.each(function(value) {
             var prop = '__advice'+value.camelize();
             if(elm[prop]) {
@@ -320,7 +332,7 @@ Validation.addAllThese([
                 return !Validation.get('IsEmpty').test(v);
             }],
     ['validate-number', 'Please enter a valid number in this field.', function(v) {
-                return Validation.get('IsEmpty').test(v) || (!isNaN(v) && !/^\s+$/.test(v));
+                return Validation.get('IsEmpty').test(v) || (!isNaN(parseNumber(v)) && !/^\s+$/.test(parseNumber(v)));
             }],
     ['validate-digits', 'Please use numbers only in this field. please avoid spaces or other characters such as dots or commas.', function(v) {
                 return Validation.get('IsEmpty').test(v) ||  !/[^\d]/.test(v);
@@ -370,8 +382,11 @@ Validation.addAllThese([
     ['validate-clean-url', 'Please enter a valid URL. For example http://www.example.com or www.example.com', function (v) {
                 return Validation.get('IsEmpty').test(v) || /^(http|https|ftp):\/\/(([A-Z0-9][A-Z0-9_-]*)(\.[A-Z0-9][A-Z0-9_-]*)+.(com|org|net|dk|at|us|tv|info|uk|co.uk|biz|se)$)(:(\d+))?\/?/i.test(v) || /^(www)((\.[A-Z0-9][A-Z0-9_-]*)+.(com|org|net|dk|at|us|tv|info|uk|co.uk|biz|se)$)(:(\d+))?\/?/i.test(v)
             }],
-    ['validate-identifier', 'Please enter a valid Identifier. For example example-page or example-page.html', function (v) {
-                return Validation.get('IsEmpty').test(v) || /^[A-Z0-9][A-Z0-9_-]+(\.[A-Z0-9_-]+)*$/i.test(v)
+    ['validate-identifier', 'Please enter a valid Identifier. For example example-page, example-page.html or anotherlevel/example-page', function (v) {
+                return Validation.get('IsEmpty').test(v) || /^[A-Z0-9][A-Z0-9_\/-]+(\.[A-Z0-9_-]+)*$/i.test(v)
+            }],
+    ['validate-xml-identifier', 'Please enter a valid XML-identifier. For example something_1, block5, id-4', function (v) {
+                return Validation.get('IsEmpty').test(v) || /^[A-Z][A-Z0-9_\/-]*$/i.test(v)
             }],
     ['validate-ssn', 'Please enter a valid social security number. For example 123-45-6789.', function(v) {
             return Validation.get('IsEmpty').test(v) || /^\d{3}-?\d{2}-?\d{4}$/.test(v);
@@ -422,13 +437,14 @@ Validation.addAllThese([
                 }
             }],
     ['validate-not-negative-number', 'Please enter a valid number in this field.', function(v) {
+                v = parseNumber(v);
                 return (!isNaN(v) && v>=0);
             }],
     ['validate-state', 'Please select State/Province.', function(v) {
                 return (v!=0 || v == '');
             }],
 
-    ['validate-new-password', 'Please enter valid password.', function(v) {
+    ['validate-new-password', 'Please enter 6 or more characters. Leading or trailing spaces will be ignored.', function(v) {
                 if (!Validation.get('validate-password').test(v)) return false;
                 if (Validation.get('IsEmpty').test(v) && v != '') return false;
                 return true;
@@ -448,7 +464,8 @@ Validation.addAllThese([
     ['validate-cc-number', 'Please enter a valid credit card number.', function(v, elm) {
                 // remove non-numerics
                 var ccTypeContainer = $(elm.id.substr(0,elm.id.indexOf('_cc_number')) + '_cc_type');
-                if (ccTypeContainer && (ccTypeContainer.value == 'OT' || ccTypeContainer.value == 'SS')) {
+                if (ccTypeContainer && typeof Validation.creditCartTypes.get(ccTypeContainer.value) != 'undefined'
+                        && Validation.creditCartTypes.get(ccTypeContainer.value)[2] == false) {
                     if (!Validation.get('IsEmpty').test(v) && Validation.get('validate-digits').test(v)) {
                         return true;
                     } else {
@@ -468,23 +485,20 @@ Validation.addAllThese([
                 }
                 var ccType = ccTypeContainer.value;
 
+                if (typeof Validation.creditCartTypes.get(ccType) == 'undefined') {
+                    return false;
+                }
+
                 // Other card type or switch or solo card
-                if (ccType == 'OT' || ccType == 'SS') {
+                if (Validation.creditCartTypes.get(ccType)[0]==false) {
                     return true;
                 }
 
-                // Credit card type detecting regexp
-                var ccTypeRegExp = {
-                    'VI': new RegExp('^4[0-9]{12}([0-9]{3})?$'),
-                    'MC': new RegExp('^5[1-5][0-9]{14}$'),
-                    'AE': new RegExp('^3[47][0-9]{13}$'),
-                    'DI': new RegExp('^6011[0-9]{12}$')
-                };
-
                 // Matched credit card type
                 var ccMatchedType = '';
-                $H(ccTypeRegExp).each(function (pair) {
-                    if (v.match(pair.value)) {
+
+                Validation.creditCartTypes.each(function (pair) {
+                    if (pair.value[0] && v.match(pair.value[0])) {
                         ccMatchedType = pair.key;
                         throw $break;
                     }
@@ -500,6 +514,17 @@ Validation.addAllThese([
                 var ccNumberContainer = $(elm.id.substr(0,elm.id.indexOf('_cc_type')) + '_cc_number');
                 return Validation.get('validate-cc-type').test(ccNumberContainer.value, ccNumberContainer);
             }],
+     ['validate-cc-exp', 'Incorrect credit card expiration date', function(v, elm) {
+                var ccExpMonth   = v;
+                var ccExpYear    = $('ccsave_expiration_yr').value;
+                var currentTime  = new Date();
+                var currentMonth = currentTime.getMonth() + 1;
+                var currentYear  = currentTime.getFullYear();
+                if (ccExpMonth < currentMonth && ccExpYear == currentYear) {
+                    return false;
+                }
+                return true;
+            }],
      ['validate-cc-cvn', 'Please enter a valid credit card verification number.', function(v, elm) {
                 var ccTypeContainer = $(elm.id.substr(0,elm.id.indexOf('_cc_cid')) + '_cc_type');
                 if (!ccTypeContainer) {
@@ -507,20 +532,11 @@ Validation.addAllThese([
                 }
                 var ccType = ccTypeContainer.value;
 
-                switch (ccType) {
-                    case 'VI' :
-                    case 'MC' :
-                    case 'DI' :
-                        re = new RegExp('^[0-9]{3}$');
-                        break;
-                    case 'AE' :
-                        re = new RegExp('^[0-9]{4}$');
-                        break;
-                    case 'OT' :
-                    case 'SS' :
-                        re = new RegExp('^([0-9]{3}|[0-9]{4})?$');
-                        break;
+                if (typeof Validation.creditCartTypes.get(ccType) == 'undefined') {
+                    return false;
                 }
+
+                var re = Validation.creditCartTypes.get(ccType)[1];
 
                 if (v.match(re)) {
                     return true;
@@ -534,6 +550,23 @@ Validation.addAllThese([
                     return /^[A-Za-z]+[A-Za-z0-9_]+$/.test(v);
                 }
                 return true;
+            }],
+     ['validate-css-length', 'Please input a valid CSS-length. For example 100px or 77pt or 20em or .5ex or 50%', function (v) {
+                if (v != '' && v) {
+                    return /^[0-9\.]+(px|pt|em|ex|%)?$/.test(v) && (!(/\..*\./.test(v))) && !(/\.$/.test(v));
+                }
+                return true;
+            }],
+     ['validate-length', 'Maximum length exceeded.', function (v, elm) {
+                var re = new RegExp(/^maximum-length-[0-9]+$/);
+                var result = true;
+                $w(elm.className).each(function(name, index) {
+                        if (name.match(re) && result) {
+                           var length = name.split('-')[2];
+                           result = (v.length <= length);
+                        }
+                    });
+                return result;
             }]
 ]);
 
@@ -555,7 +588,6 @@ function validateCreditCard(s) {
     }
     // validate number
     j = w.length / 2;
-    if (j < 6.5 || j > 8 || j == 7) return false;
     k = Math.floor(j);
     m = Math.ceil(j) - k;
     c = 0;
@@ -572,3 +604,43 @@ function removeDelimiters (v) {
     v = v.replace(/\-/g, '');
     return v;
 }
+
+function parseNumber(v)
+{
+    if (typeof v != 'string') {
+        return parseFloat(v);
+    }
+
+    var isDot  = v.indexOf('.');
+    var isComa = v.indexOf(',');
+
+    if (isDot != -1 && isComa != -1) {
+        if (isComa > isDot) {
+            v = v.replace('.', '').replace(',', '.');
+        }
+        else {
+            v = v.replace(',', '');
+        }
+    }
+    else if (isComa != -1) {
+        v = v.replace(',', '.');
+    }
+
+    return parseFloat(v);
+}
+
+/**
+ * Hash with credit card types wich can be simply extended in payment modules
+ * 0 - regexp for card number
+ * 1 - regexp for cvn
+ * 2 - check or not credit card number trough Luhn algorithm by
+ *     function validateCreditCard wich you can find above in this file
+ */
+Validation.creditCartTypes = $H({
+    'VI': [new RegExp('^4[0-9]{12}([0-9]{3})?$'), new RegExp('^[0-9]{3}$'), true],
+    'MC': [new RegExp('^5[1-5][0-9]{14}$'), new RegExp('^[0-9]{3}$'), true],
+    'AE': [new RegExp('^3[47][0-9]{13}$'), new RegExp('^[0-9]{4}$'), true],
+    'DI': [new RegExp('^6011[0-9]{12}$'), new RegExp('^[0-9]{3}$'), true],
+    'SS': [new RegExp('^((6759[0-9]{12})|(49[013][1356][0-9]{13})|(633[34][0-9]{12})|(633110[0-9]{10})|(564182[0-9]{10}))([0-9]{2,3})?$'), new RegExp('^([0-9]{3}|[0-9]{4})?$'), true],
+    'OT': [false, new RegExp('^([0-9]{3}|[0-9]{4})?$'), false]
+});

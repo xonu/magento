@@ -4,18 +4,24 @@
  *
  * NOTICE OF LICENSE
  *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
+ * This source file is subject to the Academic Free License (AFL 3.0)
+ * that is bundled with this package in the file LICENSE_AFL.txt.
  * It is also available through the world-wide-web at this URL:
- * http://opensource.org/licenses/osl-3.0.php
+ * http://opensource.org/licenses/afl-3.0.php
  * If you did not receive a copy of the license and are unable to
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   design_default
  * @package    Mage
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
- * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @license    http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
  */
 ?>
 <?php
@@ -32,6 +38,7 @@
 ?>
 
 <script type="text/javascript">
+var profileImportOnly = ['profile_number_of_records', 'profile_decimal_separator'];
 function showOption(select)
 {
     select = $(select);
@@ -46,7 +53,7 @@ function showOption(select)
 function addFieldMapping()
 {
     var entityType = $('profile_entity_type').value;
-    new Insertion.Bottom($('map_container_'+entityType), $('map_template_'+entityType).innerHTML);
+    Element.insert($('map_container_'+entityType), {bottom: $('map_template_'+entityType).innerHTML});
 }
 
 function removeFieldMapping(button)
@@ -110,6 +117,12 @@ function changeDirection()
 {
     toggleSelectOption('remove', 'profile_direction', 'profile_data_transfer', 'export', 'interactive', '<?php echo $this->__('Interactive') ?>');
     //showOption('profile_data_transfer');
+    if ($('profile_direction').value == 'import') {
+        profileImportOnly.each(function(id){if ($(id))$(id).up(1).show();});
+    }
+    else {
+        profileImportOnly.each(function(id){if ($(id))$(id).up(1).hide();});
+    }
 }
 
 function updateRun(select)
@@ -184,6 +197,19 @@ Event.observe(window, 'load', function(){
 	                    <?php echo $this->__("(Products will be added/updated to this store if 'store' column is blank or missing in the import file.)") ?>
 	            </small>
 			</span>
+        </span>
+        <span class="field-row">
+            <label for="profile_number_of_records"><?php echo $this->__("Number of records:") ?></label>
+            <span class="with-tip">
+                <input class="required-entry validate-number input-text" id="profile_number_of_records" name="gui_data[import][number_of_records]" value="<?php echo (($numbers = $this->getValue('gui_data/import/number_of_records')) ? $numbers : 1) ?>"/>
+                <small><?php echo $this->__("(You have to increase php memory_limit before changing this value)") ?></small>
+            </span>
+        </span>
+        <span class="field-row">
+            <label for="profile_decimal_separator"><?php echo $this->__("Decimal separator:") ?></label>
+            <span class="with-tip">
+                <input class="required-entry input-text" id="profile_decimal_separator" name="gui_data[import][decimal_separator]" value="<?php echo (($separator = $this->getValue('gui_data/import/decimal_separator')) ? $separator : '.') ?>"/>
+            </span>
         </span>
     </fieldset>
 
@@ -278,11 +304,12 @@ Event.observe(window, 'load', function(){
             <span class="field-row">
                 <label for="parse_delimiter"><?php echo $this->__("Value Delimiter:") ?></label>
                 <input class="input-text" style="width:3em" id="parse_delimiter" name="gui_data[parse][delimiter]" value="<?php echo $this->getValue('gui_data/parse/delimiter', ',') ?>"/>
-				<?php echo $this->__("(\\t for tab)") ?>
+				<small><?php echo $this->__("(\\t for tab)") ?></small>
             </span>
             <span class="field-row">
                 <label for="parse_enclose"><?php echo $this->__("Enclose Values In:") ?></label>
-                <input class="input-text" style="width:3em" id="parse_enclose" name="gui_data[parse][enclose]" value="<?php echo $this->getValue('gui_data/parse/enclose', '"') ?>"/>
+                <input class="input-text" style="width:3em" id="parse_enclose" name="gui_data[parse][enclose]" value="<?php echo $this->getValue('gui_data/parse/enclose', '', '"') ?>"/>
+                <small><?php echo $this->__("Warning! Empty value can cause problems with CSV format.") ?></small>
             </span>
         </div>
         <span class="field-row">

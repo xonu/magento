@@ -12,14 +12,22 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Sales
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
 class Mage_Sales_Model_Order_Creditmemo_Item extends Mage_Core_Model_Abstract
 {
+    protected $_eventPrefix = 'sales_creditmemo_item';
+    protected $_eventObject = 'creditmemo_item';
     protected $_creditmemo = null;
     protected $_orderItem = null;
 
@@ -93,12 +101,17 @@ class Mage_Sales_Model_Order_Creditmemo_Item extends Mage_Core_Model_Abstract
      */
     public function setQty($qty)
     {
-        $qty = (float) $qty;
+        if ($this->getOrderItem()->getIsQtyDecimal()) {
+            $qty = (float) $qty;
+        }
+        else {
+            $qty = (int) $qty;
+        }
         $qty = $qty > 0 ? $qty : 0;
         /**
          * Check qty availability
          */
-        if ($qty <= $this->getOrderItem()->getQtyToRefund()) {
+        if ($qty <= $this->getOrderItem()->getQtyToRefund() || $this->getOrderItem()->isDummy()) {
             $this->setData('qty', $qty);
         }
         else {
@@ -137,8 +150,11 @@ class Mage_Sales_Model_Order_Creditmemo_Item extends Mage_Core_Model_Abstract
      */
     public function calcRowTotal()
     {
-        $this->setRowTotal($this->getPrice()*$this->getQty());
-        $this->setBaseRowTotal($this->getBasePrice()*$this->getQty());
+        $rowTotal       = $this->getOrderItem()->getRowTotal()/$this->getOrderItem()->getQtyOrdered()*$this->getQty();
+        $baseRowTotal   = $this->getOrderItem()->getBaseRowTotal()/$this->getOrderItem()->getQtyOrdered()*$this->getQty();
+        
+        $this->setRowTotal($this->getCreditmemo()->getStore()->roundPrice($rowTotal));
+        $this->setBaseRowTotal($this->getCreditmemo()->getStore()->roundPrice($baseRowTotal));
         return $this;
     }
 }

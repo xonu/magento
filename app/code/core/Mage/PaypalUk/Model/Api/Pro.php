@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Paygate
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -23,6 +29,7 @@
  *
  * @category    Mage
  * @package     Mage_Paygate
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 
 class Mage_PaypalUk_Model_Api_Pro extends  Mage_PaypalUk_Model_Api_Abstract
@@ -81,11 +88,16 @@ class Mage_PaypalUk_Model_Api_Pro extends  Mage_PaypalUk_Model_Api_Abstract
     {
         $p = $this->getPayment();
         $a = $this->getBillingAddress();
-        $s = $this->getShippingAddress();
+        if ($this->getShippingAddress()) {
+            $s = $this->getShippingAddress();
+        } else {
+            $s = $a;
+        }
 
         $proArr = array(
             'TENDER'        => self::TENDER_CC,
             'AMT'           => $this->getAmount(),
+            'BUTTONSOURCE'   => $this->getButtonSourceDp(),
         );
 
         if($this->getTrxtype()==self::TRXTYPE_AUTH_ONLY || $this->getTrxtype()==self::TRXTYPE_SALE){
@@ -118,7 +130,8 @@ class Mage_PaypalUk_Model_Api_Pro extends  Mage_PaypalUk_Model_Api_Abstract
                 $proArr = array_merge(array(
                 'CARDISSUE'    => $p->getCcSsIssue(),
                 ), $proArr);
-            }elseif($p->getCcSsStartYear()){
+            }
+            if($p->getCcSsStartYear() || $p->getCcSsStartMonth()){
                 $proArr = array_merge(array(
                 'CARDSTART'    => sprintf('%02d',$p->getCcSsStartMonth()).substr($p->getCcSsStartYear(),-2,2),
                 ), $proArr);
@@ -198,14 +211,16 @@ class Mage_PaypalUk_Model_Api_Pro extends  Mage_PaypalUk_Model_Api_Abstract
         $result = $this->postRequest($proArr);
 
         if ($result && $result->getResultCode()==self::RESPONSE_CODE_APPROVED) {
-             $this->setToken($result->getToken());
-             $this->setRedirectUrl($this->getPaypalUrl());
-         } else {
+            $this->setToken($result->getToken());
+            $this->setRedirectUrl($this->getPaypalUrl());
+        } else if ($result) {
             $errorArr['code'] = $result->getResultCode();
             $errorArr['message'] = $result->getRespmsg();
             $this->setError($errorArr);
             return false;
-         }
+        } else {
+            return false;
+        }
 
          return $this;
     }
@@ -224,6 +239,7 @@ class Mage_PaypalUk_Model_Api_Pro extends  Mage_PaypalUk_Model_Api_Abstract
             $this->setPayerId($result->getPayerid());
             $this->setCorrelationId($result->getCorrelationid());
             $this->setPayerStatus($result->getPayerstatus());
+            $this->setPaypalPayerEmail($result->getEmail());
 
             //$this->setAddressId($result->getAddressId());
            //$this->setAddressStatus($result->getAddressStatus());
@@ -282,9 +298,9 @@ class Mage_PaypalUk_Model_Api_Pro extends  Mage_PaypalUk_Model_Api_Abstract
          if ($result && $result->getResultCode()==self::RESPONSE_CODE_APPROVED) {
              $this->setTransactionId($result->getPnref());
           } else {
-            $errorArr['code'] = $result->getResultCode();
-            $errorArr['message'] = $result->getRespmsg();
-            $this->setError($errorArr);
+            //$errorArr['code'] = $result->getResultCode();
+            //$errorArr['message'] = $result->getRespmsg();
+            //$this->setError($errorArr);
             return false;
          }
 

@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Paypal
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -22,6 +28,7 @@
  *
  * PayPal Direct Module
  *
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Paypal_Model_Direct extends Mage_Payment_Model_Method_Cc
 {
@@ -109,8 +116,8 @@ class Mage_Paypal_Model_Direct extends Mage_Payment_Model_Method_Cc
             ->setBillingAddress($payment->getOrder()->getBillingAddress())
             ->setShippingAddress($payment->getOrder()->getShippingAddress())
             ->setEmail($payment->getOrder()->getCustomerEmail())
-            ->setPayment($payment);
-        ;
+            ->setPayment($payment)
+            ->setInvNum($payment->getOrder()->getIncrementId());
 
         if ($api->callDoDirectPayment()!==false) {
             $payment
@@ -143,7 +150,8 @@ class Mage_Paypal_Model_Direct extends Mage_Payment_Model_Method_Cc
             ->setBillingAddress($payment->getOrder()->getBillingAddress())
             ->setShippingAddress($payment->getOrder()->getShippingAddress())
             ->setEmail($payment->getOrder()->getCustomerEmail())
-            ->setPayment($payment);
+            ->setPayment($payment)
+            ->setInvNum($payment->getOrder()->getIncrementId());
         ;
         if ($payment->getCcTransId()) {
             $api->setAuthorizationId($payment->getCcTransId())
@@ -182,8 +190,8 @@ class Mage_Paypal_Model_Direct extends Mage_Payment_Model_Method_Cc
             ->setPaymentType($this->getPaymentAction())
             ->setAmount($payment->getOrder()->getGrandTotal())
             ->setBillingAddress($payment->getOrder()->getBillingAddress())
-            ->setPayment($payment);
-        ;
+            ->setPayment($payment)
+            ->setInvNum($payment->getOrder()->getIncrementId());
 
         if ($api->callDoDirectPayment()!==false) {
             $payment
@@ -220,9 +228,9 @@ class Mage_Paypal_Model_Direct extends Mage_Payment_Model_Method_Cc
     public function void(Varien_Object $payment)
     {
         $error = false;
-        if($payment->getCcTransId()){
+        if($payment->getVoidTransactionId()){
             $api = $this->getApi();
-            $api->setAuthorizationId($payment->getCcTransId());
+            $api->setAuthorizationId($payment->getVoidTransactionId());
             if ($api->callDoVoid()!==false){
                  $payment->setStatus('SUCCESS')
                     ->setCcTransId($api->getTransactionId());

@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Customer
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -23,6 +29,7 @@
  *
  * @category   Mage
  * @package    Mage_Customer
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Customer_Model_Session extends Mage_Core_Model_Session_Abstract
 {
@@ -42,8 +49,21 @@ class Mage_Customer_Model_Session extends Mage_Core_Model_Session_Abstract
      */
     public function setCustomer(Mage_Customer_Model_Customer $customer)
     {
+        // check if customer is not confirmed
+        if ($customer->isConfirmationRequired()) {
+            if ($customer->getConfirmation()) {
+                throw new Exception('This customer is not confirmed and cannot log in.',
+                    Mage_Customer_Model_Customer::EXCEPTION_EMAIL_NOT_CONFIRMED
+                );
+            }
+        }
         $this->_customer = $customer;
         $this->setId($customer->getId());
+        // save customer as confirmed, if it is not
+        if ((!$customer->isConfirmationRequired()) && $customer->getConfirmation()) {
+            $customer->setConfirmation(null)->save();
+            $customer->setIsJustConfirmed(true);
+        }
         return $this;
     }
 
@@ -78,9 +98,15 @@ class Mage_Customer_Model_Session extends Mage_Core_Model_Session_Abstract
         return $this->getId();
     }
 
+    /**
+     * Get customer group id
+     * If customer is not logged in, the default customer group id from config will be returned
+     *
+     * @return int
+     */
     public function getCustomerGroupId()
     {
-        return $this->isLoggedIn() ? $this->getCustomer()->getGroupId() : 0;
+        return $this->getCustomer()->getGroupId();
     }
 
     /**
@@ -90,7 +116,7 @@ class Mage_Customer_Model_Session extends Mage_Core_Model_Session_Abstract
      */
     public function isLoggedIn()
     {
-        return (bool)$this->getId();
+        return (bool)$this->getId() && (bool)$this->getCustomer()->getId();
     }
 
     /**

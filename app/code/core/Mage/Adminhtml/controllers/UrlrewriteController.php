@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Adminhtml
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 class Mage_Adminhtml_UrlrewriteController extends Mage_Adminhtml_Controller_Action
@@ -103,9 +109,9 @@ class Mage_Adminhtml_UrlrewriteController extends Mage_Adminhtml_Controller_Acti
         $this->loadLayout();
 
 //        $this->getLayout()->getBlock('head')->setCanLoadExtJs(true);
-        
+
         $this->_initAction()->_addContent($this->getLayout()->createBlock('adminhtml/urlrewrite_add'));
-        
+
         $this->getLayout()->getBlock('head')->setCanLoadExtJs(true);
 
         $this->renderLayout();
@@ -131,7 +137,7 @@ class Mage_Adminhtml_UrlrewriteController extends Mage_Adminhtml_Controller_Acti
                     $model->setProductId($data['product_id'] ? $data['product_id'] : null);
                     $model->setCategoryId($data['category_id'] ? $data['category_id'] : null);
             	}
-            	$model->setRequestPath($this->_formatUrlKey($data['request_path']));
+            	$model->setRequestPath($data['request_path']);
             	$model->setOptions($data['options']);
                 $model->setDescription($data['description']);
             	$model->save();
@@ -140,7 +146,7 @@ class Mage_Adminhtml_UrlrewriteController extends Mage_Adminhtml_Controller_Acti
             catch (Exception $e){
                 Mage::getSingleton('adminhtml/session')->addError($e->getMessage())->setUrlrewriteData($data);
 
-                $this->getResponse()->setRedirect($this->getUrl('*/urlrewrite/new', array('id'=>$model->getId())));
+                $this->getResponse()->setRedirect($this->getUrl('*/urlrewrite/edit', array('id'=>$model->getId())));
                 return;
             }
         }

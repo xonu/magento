@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Checkout
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -23,9 +29,20 @@
  *
  * @category   Mage
  * @package    Mage_Checkout
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
-class Mage_Checkout_Block_Multishipping_Overview extends Mage_Checkout_Block_Multishipping_Abstract
+class Mage_Checkout_Block_Multishipping_Overview extends Mage_Sales_Block_Items_Abstract
 {
+    /**
+     * Get multishipping checkout model
+     *
+     * @return Mage_Checkout_Model_Type_Multishipping
+     */
+    public function getCheckout()
+    {
+        return Mage::getSingleton('checkout/type_multishipping');
+    }
+
     protected function _prepareLayout()
     {
         if ($headBlock = $this->getLayout()->getBlock('head')) {
@@ -69,16 +86,31 @@ class Mage_Checkout_Block_Multishipping_Overview extends Mage_Checkout_Block_Mul
     public function getShippingAddressRate($address)
     {
         if ($rate = $address->getShippingRateByCode($address->getShippingMethod())) {
-            $filter = Mage::app()->getStore()->getPriceFilter();
-            $rate->setPrice($filter->filter($rate->getPrice()));
             return $rate;
         }
         return false;
     }
 
+    public function getShippingPriceInclTax($address)
+    {
+        $exclTax = $address->getShippingAmount();
+        $taxAmount = $address->getShippingTaxAmount();
+        return $this->formatPrice($exclTax + $taxAmount);
+    }
+
+    public function getShippingPriceExclTax($address)
+    {
+        return $this->formatPrice($address->getShippingAmount());
+    }
+
+    public function formatPrice($price)
+    {
+        return $this->getQuote()->getStore()->formatPrice($price);
+    }
+
     public function getShippingAddressItems($address)
     {
-        return $address->getAllItems();
+        return $address->getAllVisibleItems();
     }
 
     public function getShippingAddressTotals($address)
@@ -86,7 +118,12 @@ class Mage_Checkout_Block_Multishipping_Overview extends Mage_Checkout_Block_Mul
         $totals = $address->getTotals();
         foreach ($totals as $total) {
             if ($total->getCode()=='grand_total') {
-                $total->setTitle($this->__('Total for this address'));
+                if ($address->getAddressType() == Mage_Sales_Model_Quote_Address::TYPE_BILLING) {
+                    $total->setTitle($this->__('Total'));
+                }
+                else {
+                    $total->setTitle($this->__('Total for this address'));
+                }
             }
         }
         return $totals;
@@ -130,5 +167,57 @@ class Mage_Checkout_Block_Multishipping_Overview extends Mage_Checkout_Block_Mul
     public function getBackUrl()
     {
         return $this->getUrl('*/*/backtobilling');
+    }
+
+    /**
+     * Retrieve virtual product edit url
+     *
+     * @return string
+     */
+    public function getVirtualProductEditUrl()
+    {
+        return $this->getUrl('*/cart');
+    }
+
+    /**
+     * Retrieve virtual product collection array
+     *
+     * @return array
+     */
+    public function getVirtualItems()
+    {
+        $items = array();
+        foreach ($this->getBillingAddress()->getItemsCollection() as $_item) {
+            if ($_item->isDeleted()) {
+                continue;
+            }
+            if ($_item->getProduct()->getIsVirtual() && !$_item->getParentItemId()) {
+                $items[] = $_item;
+            }
+        }
+        return $items;
+    }
+
+    /**
+     * Retrieve quote
+     *
+     * @return Mage_Sales_Model_Qoute
+     */
+    public function getQuote()
+    {
+        return $this->getCheckout()->getQuote();
+    }
+
+    public function getBillinAddressTotals()
+    {
+        $_address = $this->getQuote()->getBillingAddress();
+        return $this->getShippingAddressTotals($_address);
+    }
+
+
+    public function renderTotals($totals)
+    {
+        $colspan = $this->helper('tax')->displayCartBothPrices() ? 5 : 3;
+        return $this->getChild('totals')->setTotals($totals)->renderTotals(-1, $colspan);
     }
 }

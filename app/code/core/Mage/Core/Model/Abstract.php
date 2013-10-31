@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Core
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -24,6 +30,7 @@
  *
  * @category   Mage
  * @package    Mage_Core
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 abstract class Mage_Core_Model_Abstract extends Varien_Object
 {
@@ -72,6 +79,15 @@ abstract class Mage_Core_Model_Abstract extends Varien_Object
      * @var string || true
      */
     protected $_cacheTag    = false;
+
+    /**
+     * Flag which can stop data saving after before save
+     * Can be used for next sequence: we check data in _beforeSave, if data are
+     * not valid - we can set this flag to false value and save process will be stopped
+     *
+     * @var bool
+     */
+    protected $_dataSaveAllowed = true;
 
     /**
      * Standard model initialization
@@ -138,10 +154,10 @@ abstract class Mage_Core_Model_Abstract extends Varien_Object
      */
     public function getId()
     {
-        if ($this->getIdFieldName()) {
-            return $this->getData($this->getIdFieldName());
+        if ($fieldName = $this->getIdFieldName()) {
+            return $this->_getData($fieldName);
         } else {
-            return $this->getData('id');
+            return $this->_getData('id');
         }
     }
 
@@ -231,9 +247,10 @@ abstract class Mage_Core_Model_Abstract extends Varien_Object
         $this->_getResource()->beginTransaction();
         try {
             $this->_beforeSave();
-            $this->_getResource()->save($this);
-            $this->_afterSave();
-
+            if ($this->_dataSaveAllowed) {
+                $this->_getResource()->save($this);
+                $this->_afterSave();
+            }
             $this->_getResource()->commit();
         }
         catch (Exception $e){
@@ -290,8 +307,6 @@ abstract class Mage_Core_Model_Abstract extends Varien_Object
             $this->_afterDelete();
 
             $this->_getResource()->commit();
-
-            Mage::getConfig()->removeCache();
         }
         catch (Exception $e){
             $this->_getResource()->rollBack();
@@ -310,6 +325,21 @@ abstract class Mage_Core_Model_Abstract extends Varien_Object
         Mage::dispatchEvent('model_delete_before', array('object'=>$this));
         Mage::dispatchEvent($this->_eventPrefix.'_delete_before', array($this->_eventObject=>$this));
         return $this;
+    }
+
+    /**
+     * Safeguard func that will check, if we are in admin area
+     *
+     * @throws Mage_Core_Exception
+     */
+    protected function _protectFromNonAdmin()
+    {
+        if (Mage::registry('isSecureArea')) {
+            return;
+        }
+        if (!Mage::app()->getStore()->isAdmin()) {
+            Mage::throwException(Mage::helper('core')->__('Cannot complete this operation from non-admin area.'));
+        }
     }
 
     /**
@@ -339,5 +369,10 @@ abstract class Mage_Core_Model_Abstract extends Varien_Object
     public function getResource()
     {
         return $this->_getResource();
+    }
+
+    public function getEntityId()
+    {
+        return $this->_getData('entity_id');
     }
 }

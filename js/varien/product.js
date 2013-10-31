@@ -3,16 +3,22 @@
  *
  * NOTICE OF LICENSE
  *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
+ * This source file is subject to the Academic Free License (AFL 3.0)
+ * that is bundled with this package in the file LICENSE_AFL.txt.
  * It is also available through the world-wide-web at this URL:
- * http://opensource.org/licenses/osl-3.0.php
+ * http://opensource.org/licenses/afl-3.0.php
  * If you did not receive a copy of the license and are unable to
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
- * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @license    http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
  */
 if(typeof Product=='undefined') {
     var Product = {};
@@ -24,16 +30,19 @@ Product.Zoom = Class.create();
 /**
  * Image zoom control
  *
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 Product.Zoom.prototype = {
-    initialize: function(imageEl, trackEl, handleEl, zoomInEl, zoomOutEl){
+    initialize: function(imageEl, trackEl, handleEl, zoomInEl, zoomOutEl, hintEl){
         this.containerEl = $(imageEl).parentNode;
         this.imageEl = $(imageEl);
         this.handleEl = $(handleEl);
         this.trackEl = $(trackEl);
+        this.hintEl = $(hintEl);
 
         this.containerDim = Element.getDimensions(this.containerEl);
         this.imageDim = Element.getDimensions(this.imageEl);
+
         this.imageDim.ratio = this.imageDim.width/this.imageDim.height;
 
         this.floorZoom = 1;
@@ -44,10 +53,11 @@ Product.Zoom.prototype = {
             this.ceilingZoom = this.imageDim.height / this.containerDim.height;
         }
 
-        if (this.imageDim.width < this.containerDim.width
-            && this.imageDim.height < this.containerDim.height) {
+        if (this.imageDim.width <= this.containerDim.width
+            && this.imageDim.height <= this.containerDim.height) {
             this.trackEl.up().hide();
-            this.containerEl.removeClassName('main-product-img');
+            this.hintEl.hide();
+            this.containerEl.removeClassName('product-image-zoom');
             return;
         }
 
@@ -97,17 +107,22 @@ Product.Zoom.prototype = {
     toggleFull: function () {
         this.showFull = !this.showFull;
         //TODO: hide selects for IE only
+
         for (i=0; i<this.selects.length; i++) {
             this.selects[i].style.visibility = this.showFull ? 'hidden' : 'visible';
         }
+        val_scale = !this.showFull ? this.slider.value : 1;
+        this.scale(val_scale);
+
         this.trackEl.style.visibility = this.showFull ? 'hidden' : 'visible';
         this.containerEl.style.overflow = this.showFull ? 'visible' : 'hidden';
-        this.containerEl.style.zIndex = this.showFull ? '100' : '1';
+        this.containerEl.style.zIndex = this.showFull ? '1000' : '9';
 
         return this;
     },
 
     scale: function (v) {
+
         var centerX = (this.containerDim.width*(1-this.imageZoom)/2-this.imageX)/this.imageZoom;
         var centerY = (this.containerDim.height*(1-this.imageZoom)/2-this.imageY)/this.imageZoom;
 
@@ -272,6 +287,7 @@ Product.Config.prototype = {
             this.resetChildren(element);
         }
         this.reloadPrice();
+//      Calculator.updatePrice();
     },
 
     reloadOptionLabels: function(element){
@@ -383,19 +399,22 @@ Product.Config.prototype = {
     },
 
     reloadPrice: function(){
-        var price = parseFloat(this.config.basePrice);
+        var price = 0;
         for(var i=this.settings.length-1;i>=0;i--){
             var selected = this.settings[i].options[this.settings[i].selectedIndex];
             if(selected.config){
-                price+= parseFloat(selected.config.price);
+                price += parseFloat(selected.config.price);
             }
         }
-        price = this.formatPrice(price);
+
+        optionsPrice.changePrice('config', price);
+        optionsPrice.reload();
+
+        return price;
 
         if($('product-price-'+this.config.productId)){
             $('product-price-'+this.config.productId).innerHTML = price;
         }
-
         this.reloadOldPrice();
     },
 
@@ -409,6 +428,8 @@ Product.Config.prototype = {
                     price+= parseFloat(selected.config.price);
                 }
             }
+            if (price < 0)
+                price = 0;
             price = this.formatPrice(price);
 
             if($('old-price-'+this.config.productId)){
@@ -455,5 +476,118 @@ Product.Super.Configurable.prototype = {
                 parameters:parameters
             });
         }
+    }
+}
+
+/**************************** PRICE RELOADER ********************************/
+Product.OptionsPrice = Class.create();
+Product.OptionsPrice.prototype = {
+    initialize: function(config) {
+        this.productId          = config.productId;
+        this.priceFormat        = config.priceFormat;
+        this.includeTax         = config.includeTax;
+        this.defaultTax         = config.defaultTax;
+        this.currentTax         = config.currentTax;
+        this.productPrice       = config.productPrice;
+        this.showIncludeTax     = config.showIncludeTax;
+        this.showBothPrices     = config.showBothPrices;
+        this.productPrice       = config.productPrice;
+        this.productOldPrice    = config.productOldPrice;
+        this.skipCalculate      = config.skipCalculate;
+        this.duplicateIdSuffix  = config.idSuffix;
+
+        this.optionPrices = {};
+        this.containers = {};
+
+        this.initPrices();
+    },
+
+    setDuplicateIdSuffix: function(idSuffix) {
+        this.duplicateIdSuffix = idSuffix;
+    },
+
+    initPrices: function() {
+        this.containers[0] = 'product-price-' + this.productId;
+        this.containers[1] = 'bundle-price-' + this.productId;
+        this.containers[2] = 'price-including-tax-' + this.productId;
+        this.containers[3] = 'price-excluding-tax-' + this.productId;
+        this.containers[4] = 'old-price-' + this.productId;
+    },
+
+    changePrice: function(key, price) {
+        this.optionPrices[key] = parseFloat(price);
+    },
+
+    getOptionPrices: function() {
+        var result = 0;
+        $H(this.optionPrices).each(function(pair) {
+            result += pair.value;
+        });
+        return result;
+    },
+
+    reload: function() {
+        var price;
+        var formattedPrice;
+        var optionPrices = this.getOptionPrices();
+        $H(this.containers).each(function(pair) {
+            var _productPrice;
+            if ($(pair.value)) {
+                if (pair.value == 'old-price-'+this.productId && this.productOldPrice != this.productPrice) {
+                    _productPrice = this.productOldPrice;
+                } else {
+                    _productPrice = this.productPrice;
+                }
+
+                var price = optionPrices+parseFloat(_productPrice)
+                if (this.includeTax == 'true') {
+                    // tax = tax included into product price by admin
+                    var tax = price / (100 + this.defaultTax) * this.defaultTax;
+                    var excl = price - tax;
+                    var incl = excl*(1+(this.currentTax/100));
+                } else {
+                    var tax = price * (this.defaultTax / 100);
+                    var excl = price;
+                    var incl = excl + tax;
+                }
+
+                if (pair.value == 'price-including-tax-'+this.productId) {
+                    price = incl;
+                } else if (pair.value == 'old-price-'+this.productId) {
+                    if (this.showIncludeTax || this.showBothPrices) {
+                        price = incl;
+                    } else {
+                        price = excl;
+                    }
+                } else {
+                    if (this.showIncludeTax) {
+                        price = incl;
+                    } else {
+                        if (!this.skipCalculate || _productPrice == 0) {
+                            price = excl;
+                        } else {
+                            price = optionPrices+parseFloat(_productPrice);
+                        }
+                    }
+                }
+
+                if (price < 0) price = 0;
+                formattedPrice = this.formatPrice(price);
+                if ($(pair.value).select('.price')[0]) {
+                    $(pair.value).select('.price')[0].innerHTML = formattedPrice;
+                    if ($(pair.value+this.duplicateIdSuffix) && $(pair.value+this.duplicateIdSuffix).select('.price')[0]) {
+                        $(pair.value+this.duplicateIdSuffix).select('.price')[0].innerHTML = formattedPrice;
+                    }
+                } else {
+                    $(pair.value).innerHTML = formattedPrice;
+                    if ($(pair.value+this.duplicateIdSuffix)) {
+                        $(pair.value+this.duplicateIdSuffix).innerHTML = formattedPrice;
+                    }
+                }
+            };
+        }.bind(this));
+    },
+    formatPrice: function(price) {
+        return formatCurrency(price, this.priceFormat);
     }
 }

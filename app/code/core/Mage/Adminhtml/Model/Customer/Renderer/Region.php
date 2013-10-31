@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Adminhtml
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -23,6 +29,7 @@
  *
  * @category   Mage
  * @package    Mage_Adminhtml
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Adminhtml_Model_Customer_Renderer_Region implements Varien_Data_Form_Element_Renderer_Interface
 {
@@ -58,12 +65,19 @@ class Mage_Adminhtml_Model_Customer_Renderer_Region implements Varien_Data_Form_
 
         $regionId = $element->getForm()->getElement('region_id')->getValue();
 
+        $htmlAttributes = $element->getHtmlAttributes();
+        foreach ($htmlAttributes as $key => $attribute) {
+            if ('type' === $attribute) {
+                unset($htmlAttributes[$key]);
+                break;
+            }
+        }
         if ($regionCollection && $regionCollection->getSize()) {
             $elementClass = $element->getClass();
             $element->setClass(str_replace('input-text', '', $elementClass));
             $html.= '<td class="label">'.$element->getLabelHtml().'</td>';
             $html.= '<td class="value"><select id="'.$element->getHtmlId().'" name="'.$element->getName().'" '
-                 .$element->serialize($element->getHtmlAttributes()).'>'."\n";
+                 .$element->serialize($htmlAttributes).'>'."\n";
             foreach ($regionCollection as $region) {
                 $selected = ($regionId==$region->getId()) ? ' selected="selected"' : '';
             	$html.= '<option value="'.$region->getId().'"'.$selected.'>'.$region->getName().'</option>';
@@ -79,7 +93,7 @@ class Mage_Adminhtml_Model_Customer_Renderer_Region implements Varien_Data_Form_
 
             $element->setRequired(false);
             $html.= '<td class="value"><input id="'.$element->getHtmlId().'" name="'.$element->getName()
-                 .'" value="'.$element->getEscapedValue().'"'.$element->serialize($element->getHtmlAttributes()).'/></td>'."\n";
+                 .'" value="'.$element->getEscapedValue().'"'.$element->serialize($htmlAttributes).'/></td>'."\n";
         }
         $html.= '</tr>'."\n";
         return $html;

@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_ProductAlert
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -24,6 +30,7 @@
  *
  * @category   Mage
  * @package    Mage_ProductAlert
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_ProductAlert_Block_Email_Price extends Mage_Core_Block_Template
 {
@@ -82,8 +89,9 @@ class Mage_ProductAlert_Block_Email_Price extends Mage_Core_Block_Template
     public function getProductUnsubscribeUrl($productId)
     {
         return $this->getUrl('productalert/unsubscribe/price', array(
-            'product' => $productId
-        )) . $this->_getStoreUrlParam();
+            'product' => $productId,
+            '_query'  => $this->_getStoreUrlParam()
+        ));
     }
 
     /**
@@ -93,7 +101,9 @@ class Mage_ProductAlert_Block_Email_Price extends Mage_Core_Block_Template
      */
     public function getUnsubscribeUrl()
     {
-        return $this->getUrl('productalert/unsubscribe/priceAll') . $this->_getStoreUrlParam();
+        return $this->getUrl('productalert/unsubscribe/priceAll', array(
+            '_query'  => $this->_getStoreUrlParam()
+        ));
     }
 
     /**
@@ -104,8 +114,10 @@ class Mage_ProductAlert_Block_Email_Price extends Mage_Core_Block_Template
     protected function _getStoreUrlParam()
     {
         if ($this->getStoreCode()) {
-            return '?store='.$this->getStoreCode();
+            return array(
+                '___store' => $this->getStoreCode()
+            );
         }
-        return null;
+        return array();
     }
 }

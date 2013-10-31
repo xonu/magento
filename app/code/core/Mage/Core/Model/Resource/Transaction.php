@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Core
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -25,6 +31,7 @@
  * @todo need collect conection by name
  * @category   Mage
  * @package    Mage_Core
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Core_Model_Resource_Transaction
 {
@@ -122,16 +129,37 @@ class Mage_Core_Model_Resource_Transaction
     public function save()
     {
         $this->_startTransaction();
-        try {
-            foreach ($this->_objects as $object) {
+        $commit = true;
+        $errors = array();
+
+        foreach ($this->_objects as $object) {
+            try {
                 $object->save();
             }
+            catch (Exception $e) {
+                $commit = false;
+                $errors[] = $e->getMessage();
+            }
+        }
+
+        if ($commit) {
             $this->_commitTransaction();
         }
-        catch (Exception $e) {
+        else {
             $this->_rollbackTransaction();
-            throw $e;
+            Mage::throwException(join("\n", $errors));
         }
+
+//        try {
+//            foreach ($this->_objects as $object) {
+//                $object->save();
+//            }
+//            $this->_commitTransaction();
+//        }
+//        catch (Exception $e) {
+//            $this->_rollbackTransaction();
+//            throw $e;
+//        }
         return $this;
     }
 

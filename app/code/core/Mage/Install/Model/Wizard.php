@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Install
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -23,6 +29,7 @@
  *
  * @category   Mage
  * @package    Mage_Install
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Install_Model_Wizard
 {
@@ -32,11 +39,11 @@ class Mage_Install_Model_Wizard
      * @var array
      */
     protected $_steps = array();
-    
-    public function __construct() 
+
+    public function __construct()
     {
         $this->_steps = Mage::getSingleton('install/config')->getWizardSteps();
-        
+
         foreach ($this->_steps as $index => $step) {
             $this->_steps[$index]->setUrl(
                 $this->_getUrl($this->_steps[$index]->getController(), $this->_steps[$index]->getAction())
@@ -46,15 +53,21 @@ class Mage_Install_Model_Wizard
                 $this->_steps[$index]->setNextUrl(
                     $this->_getUrl($this->_steps[$index+1]->getController(), $this->_steps[$index+1]->getAction())
                 );
+                $this->_steps[$index]->setNextUrlPath(
+                    $this->_getUrlPath($this->_steps[$index+1]->getController(), $this->_steps[$index+1]->getAction())
+                );
             }
             if (isset($this->_steps[$index-1])) {
                 $this->_steps[$index]->setPrevUrl(
                     $this->_getUrl($this->_steps[$index-1]->getController(), $this->_steps[$index-1]->getAction())
                 );
+                $this->_steps[$index]->setPrevUrlPath(
+                    $this->_getUrlPath($this->_steps[$index-1]->getController(), $this->_steps[$index-1]->getAction())
+                );
             }
         }
     }
-    
+
     /**
      * Get wizard step by request
      *
@@ -70,7 +83,7 @@ class Mage_Install_Model_Wizard
         }
         return false;
     }
-    
+
     /**
      * Get wizard step by name
      *
@@ -86,7 +99,7 @@ class Mage_Install_Model_Wizard
         }
         return false;
     }
-    
+
     /**
      * Get all wizard steps
      *
@@ -96,9 +109,21 @@ class Mage_Install_Model_Wizard
     {
         return $this->_steps;
     }
-    
+
     protected function _getUrl($controller, $action)
     {
-        return Mage::getUrl('install/'.$controller.'/'.$action);
+        return Mage::getUrl($this->_getUrlPath($controller, $action));
+    }
+
+    /**
+     * Retrieve Url Path
+     *
+     * @param string $controller
+     * @param string $action
+     * @return string
+     */
+    protected function _getUrlPath($controller, $action)
+    {
+        return 'install/'.$controller.'/'.$action;
     }
 }

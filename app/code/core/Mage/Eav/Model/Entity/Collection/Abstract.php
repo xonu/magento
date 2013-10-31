@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Eav
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -24,6 +30,7 @@
  *
  * @category   Mage
  * @package    Mage_Eav
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Eav_Model_Entity_Collection_Abstract extends Varien_Data_Collection_Db
 {
@@ -281,7 +288,7 @@ class Mage_Eav_Model_Entity_Collection_Abstract extends Varien_Data_Collection_D
             if ($attrInstance->getBackend()->isStatic()) {
                 $this->getSelect()->order($entityField.' '.$dir);
             } else {
-                $this->_addAttributeJoin($attribute);
+                $this->_addAttributeJoin($attribute, 'left');
                 if (isset($this->_joinAttributes[$attribute])) {
                     $this->getSelect()->order($attribute.' '.$dir);
                 }
@@ -310,8 +317,7 @@ class Mage_Eav_Model_Entity_Collection_Abstract extends Varien_Data_Collection_D
             }
             return $this;
         }
-
-        if ($joinType!==false) {
+        if ($joinType!==false && !$this->getEntity()->getAttribute($attribute)->getBackend()->isStatic()) {
             $this->_addAttributeJoin($attribute, $joinType);
         } elseif ('*'===$attribute) {
             $attributes = $this->getEntity()
@@ -677,7 +683,7 @@ class Mage_Eav_Model_Entity_Collection_Abstract extends Varien_Data_Collection_D
     public function setPage($pageNum, $pageSize)
     {
         $this->setCurPage($pageNum)
-            ->getPageSize($pageSize);
+            ->setPageSize($pageSize);
         return $this;
     }
 
@@ -710,7 +716,7 @@ class Mage_Eav_Model_Entity_Collection_Abstract extends Varien_Data_Collection_D
      *
      * @return array
      */
-    public function getAllIds()
+    public function getAllIds($limit=null, $offset=null)
     {
         $idsSelect = clone $this->getSelect();
         $idsSelect->reset(Zend_Db_Select::ORDER);
@@ -718,6 +724,7 @@ class Mage_Eav_Model_Entity_Collection_Abstract extends Varien_Data_Collection_D
         $idsSelect->reset(Zend_Db_Select::LIMIT_OFFSET);
         $idsSelect->reset(Zend_Db_Select::COLUMNS);
         $idsSelect->from(null, 'e.'.$this->getEntity()->getIdFieldName());
+        $idsSelect->limit($limit, $offset);
         return $this->getConnection()->fetchCol($idsSelect, $this->_bindParams);
     }
 
@@ -1158,5 +1165,15 @@ class Mage_Eav_Model_Entity_Collection_Abstract extends Varien_Data_Collection_D
         $this->_joinFields = array();
 
         return $this;
+    }
+
+    /**
+     * Returns already loaded element ids
+     *
+     * return array
+     */
+    public function getLoadedIds()
+    {
+        return array_keys($this->_items);
     }
 }

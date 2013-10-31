@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Customer
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -23,20 +29,21 @@
  *
  * @category   Mage
  * @package    Mage_Customer
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Customer_Model_Customer_Attribute_Backend_Password extends Mage_Eav_Model_Entity_Attribute_Backend_Abstract
 {
     public function beforeSave($object)
     {
-        $password = trim($object->getPassword());           
+        $password = trim($object->getPassword());
         if ($password) {
-             if(strlen($password)<6){
+             if(Mage::helper('core/string')->strlen($password)<6){
                 Mage::throwException(Mage::helper('customer')->__('Password must have at least 6 characters. Leading or trailing spaces will be ignored.'));
             }
             $object->setPasswordHash($object->hashPassword($password));
         }
     }
-    
+
     public function validate($object)
     {
         if ($password = $object->getPassword()) {
@@ -44,8 +51,8 @@ class Mage_Customer_Model_Customer_Attribute_Backend_Password extends Mage_Eav_M
                 return true;
             }
         }
-        
+
         return parent::validate($object);
     }
-    
+
 }

@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_CatalogInventory
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -23,15 +29,23 @@
  *
  * @category   Mage
  * @package    Mage_CatalogInventory
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_CatalogInventory_Model_Stock_Item extends Mage_Core_Model_Abstract
 {
-    const XML_PATH_MIN_QTY      = 'cataloginventory/options/min_qty';
-    const XML_PATH_MIN_SALE_QTY = 'cataloginventory/options/min_sale_qty';
-    const XML_PATH_MAX_SALE_QTY = 'cataloginventory/options/max_sale_qty';
-    const XML_PATH_BACKORDERS   = 'cataloginventory/options/backorders';
-    const XML_PATH_CAN_SUBTRACT = 'cataloginventory/options/can_subtract';
-    const XML_PATH_NOTIFY_STOCK_QTY = 'cataloginventory/options/notify_stock_qty';
+    const XML_PATH_GLOBAL            = 'cataloginventory/options/';
+    const XML_PATH_CAN_SUBTRACT      = 'cataloginventory/options/can_subtract';
+    const XML_PATH_CAN_BACK_IN_STOCK = 'cataloginventory/options/can_back_in_stock';
+
+    const XML_PATH_ITEM             = 'cataloginventory/item_options/';
+    const XML_PATH_MIN_QTY          = 'cataloginventory/item_options/min_qty';
+    const XML_PATH_MIN_SALE_QTY     = 'cataloginventory/item_options/min_sale_qty';
+    const XML_PATH_MAX_SALE_QTY     = 'cataloginventory/item_options/max_sale_qty';
+    const XML_PATH_BACKORDERS       = 'cataloginventory/item_options/backorders';
+    const XML_PATH_NOTIFY_STOCK_QTY = 'cataloginventory/item_options/notify_stock_qty';
+    const XML_PATH_MANAGE_STOCK     = 'cataloginventory/item_options/manage_stock';
+
+    // cataloginventory/cart_options/...
 
     protected function _construct()
     {
@@ -47,6 +61,11 @@ class Mage_CatalogInventory_Model_Stock_Item extends Mage_Core_Model_Abstract
     public function getStockId()
     {
         return 1;
+    }
+
+    public function getProductId()
+    {
+        return $this->_getData('product_id');
     }
 
     /**
@@ -73,17 +92,22 @@ class Mage_CatalogInventory_Model_Stock_Item extends Mage_Core_Model_Abstract
      */
     public function subtractQty($qty)
     {
+        if (!$this->getManageStock()) {
+            return $this;
+        }
         $config = Mage::getStoreConfigFlag(self::XML_PATH_CAN_SUBTRACT);
         if (!$config) {
             return $this;
         }
-
         $this->setQty($this->getQty()-$qty);
         return $this;
     }
 
     public function addQty($qty)
     {
+        if (!$this->getManageStock()) {
+            return $this;
+        }
         $config = Mage::getStoreConfigFlag(self::XML_PATH_CAN_SUBTRACT);
         if (!$config) {
             return $this;
@@ -155,12 +179,16 @@ class Mage_CatalogInventory_Model_Stock_Item extends Mage_Core_Model_Abstract
         return $this->getData('max_sale_qty');
     }
 
+    /**
+     *
+     * @return float
+     */
     public function getNotifyStockQty()
     {
         if ($this->getUseConfigNotifyStockQty()) {
             return (float) Mage::getStoreConfig(self::XML_PATH_NOTIFY_STOCK_QTY);
         }
-        return $this->getData('notify_stock_qty');
+        return (float)$this->getData('notify_stock_qty');
     }
 
     /**
@@ -176,6 +204,19 @@ class Mage_CatalogInventory_Model_Stock_Item extends Mage_Core_Model_Abstract
         return $this->getData('backorders');
     }
 
+    public function getManageStock()
+    {
+        if ($this->getUseConfigManageStock()) {
+            return (int) Mage::getStoreConfigFlag(self::XML_PATH_MANAGE_STOCK);
+        }
+        return $this->getData('manage_stock');
+    }
+
+    public function getCanBackInStock()
+    {
+        return Mage::getStoreConfigFlag(self::XML_PATH_CAN_BACK_IN_STOCK);
+    }
+
     /**
      * Check quantity
      *
@@ -187,8 +228,8 @@ class Mage_CatalogInventory_Model_Stock_Item extends Mage_Core_Model_Abstract
     {
         if ($this->getQty() - $qty < 0) {
             switch ($this->getBackorders()) {
-                case Mage_CatalogInventory_Model_Stock::BACKORDERS_BELOW:
-                case Mage_CatalogInventory_Model_Stock::BACKORDERS_YES:
+                case Mage_CatalogInventory_Model_Stock::BACKORDERS_YES_NONOTIFY:
+                case Mage_CatalogInventory_Model_Stock::BACKORDERS_YES_NOTIFY:
                     break;
                 default:
                     /*if ($this->getProduct()) {
@@ -209,88 +250,106 @@ class Mage_CatalogInventory_Model_Stock_Item extends Mage_Core_Model_Abstract
     /**
      * Checking quote item quantity
      *
-     * @param   Mage_Sales_Model_Quote_Item $item
-     * @return  Mage_CatalogInventory_Model_Stock_Item
+     * @param   mixed $qty - quantity of this item
+     * @param   mixed $summaryQty - a compounded summary quantity of items
+     * @return  Varien_Object
      */
-    public function checkQuoteItemQty(Mage_Sales_Model_Quote_Item $item)
+    public function checkQuoteItemQty($qty, $summaryQty)
     {
-        $qty    = $item->getQty();
-        $helper = Mage::helper('cataloginventory');
+        $result = new Varien_Object();
+        $result->setHasError(false);
+
         if (!is_numeric($qty)) {
-            $qty = floatval($qty);
+            $qty = Mage::app()->getLocale()->getNumber($qty);
+        }
+
+        if (!$this->getManageStock()) {
+            /**
+             * Check quantity type
+             */
+            $result->setItemIsQtyDecimal($this->getIsQtyDecimal());
+
+            if (!$this->getIsQtyDecimal()) {
+                $qty = intval($qty);
+            }
+
+            /**
+             * Adding stock data to quote item
+             */
+            $result->setItemQty($qty);
+
+            return $result;
         }
 
         if (!$this->getIsInStock()) {
-            $this->_addQuoteItemError(
-                $item,
-                $helper->__('This product is currently out of stock.'),
-                $helper->__('Some of the products are currently out of stock'),
-                'stock'
-            );
-            $item->setUseOldQty(true);
-            return $this;
+            $result->setHasError(true)
+                ->setMessage(Mage::helper('cataloginventory')->__('This product is currently out of stock.'))
+                ->setQuoteMessage(Mage::helper('cataloginventory')->__('Some of the products are currently out of stock'))
+                ->setQuoteMessageIndex('stock');
+            $result->setItemUseOldQty(true);
+            return $result;
         }
 
-        if ($this->getMinSaleQty() && $qty<$this->getMinSaleQty()) {
-            $this->_addQuoteItemError(
-                $item,
-                $helper->__('The minimum quantity allowed for purchase is %s.', $this->getMinSaleQty()*1),
-                $helper->__('Some of the products cannot be ordered in the requested quantity'),
-                'qty'
-            );
-            return $this;
+        if ($this->getMinSaleQty() && ($qty) < $this->getMinSaleQty()) {
+            $result->setHasError(true)
+                ->setMessage(Mage::helper('cataloginventory')->__('The minimum quantity allowed for purchase is %s.', $this->getMinSaleQty() * 1))
+                ->setQuoteMessage(Mage::helper('cataloginventory')->__('Some of the products cannot be ordered in the requested quantity'))
+                ->setQuoteMessageIndex('qty');
+            return $result;
         }
 
-        if ($this->getMaxSaleQty() && $qty>$this->getMaxSaleQty()) {
-            $this->_addQuoteItemError(
-                $item,
-                $helper->__('The maximum quantity allowed for purchase is %s.', $this->getMaxSaleQty()*1),
-                $helper->__('Some of the products can not be ordered in requested quantity'),
-                'qty'
-            );
-            return $this;
+        if ($this->getMaxSaleQty() && ($qty) > $this->getMaxSaleQty()) {
+            $result->setHasError(true)
+                ->setMessage(Mage::helper('cataloginventory')->__('The maximum quantity allowed for purchase is %s.', $this->getMaxSaleQty() * 1))
+                ->setQuoteMessage(Mage::helper('cataloginventory')->__('Some of the products can not be ordered in requested quantity'))
+                ->setQuoteMessageIndex('qty');
+            return $result;
         }
 
-
-        if ($this->checkQty($qty)) {
-            if (($this->getQty() - $qty < 0) &&
-                ($this->getBackorders() == Mage_CatalogInventory_Model_Stock::BACKORDERS_YES)) {
-                if ($this->getProduct()) {
-                    $item->setMessage(
-                        $helper->__('This product is not available in the requested quantity. %s of the items will be backordered.',
-                            ($this->getQty()>0) ? ($qty - $this->getQty())*1 : $qty*1,
-                            $this->getProduct()->getName())
-                    );
-                }
-            }
+        if (!$this->checkQty($summaryQty)) {
+            $message = Mage::helper('cataloginventory')->__('The requested quantity for "%s" is not available.', $this->getProduct()->getName());
+            $result->setHasError(true)
+                ->setMessage($message)
+                ->setQuoteMessage($message)
+                ->setQuoteMessageIndex('qty');
+            return $result;
         }
         else {
-            $this->_addQuoteItemError(
-                $item,
-                $helper->__('The requested quantity is not available.'),
-                $helper->__('The requested quantity for "%s" is not available.', $this->getProduct()->getName()),
-                'qty'
-            );
-            return $this;
+            if (($this->getQty() - $summaryQty) < 0) {
+                if ($this->getProduct()) {
+                    $backorderQty = ($this->getQty() > 0) ? ($summaryQty - $this->getQty()) * 1 : $qty * 1;
+                    if ($backorderQty>$qty) {
+                        $backorderQty = $qty;
+                    }
+                    $result->setItemBackorders($backorderQty);
+                    if ($this->getBackorders() == Mage_CatalogInventory_Model_Stock::BACKORDERS_YES_NOTIFY) {
+                        $result->setMessage(Mage::helper('cataloginventory')->__('This product is not available in the requested quantity. %d of the items will be backordered.',
+                            $backorderQty,
+                            $this->getProduct()->getName())
+                            )
+                        ;
+                    }
+                }
+            }
+            // no return intentionally
         }
 
         /**
-         * Check quontity type
+         * Check quantity type
          */
+
+        $result->setItemIsQtyDecimal($this->getIsQtyDecimal());
+
         if (!$this->getIsQtyDecimal()) {
             $qty = intval($qty);
         }
 
-        $item->setHasError(false);
         /**
          * Adding stock data to quote item
          */
-        $item->addData(array(
-            'qty'       => $qty,
-            'backorders'=> $this->getBackorders(),
-        ));
+        $result->setItemQty($qty);
 
-        return $this;
+        return $result;
     }
 
     /**
@@ -316,22 +375,46 @@ class Mage_CatalogInventory_Model_Stock_Item extends Mage_Core_Model_Abstract
 
     protected function _beforeSave()
     {
-        if ($this->getBackorders() == Mage_CatalogInventory_Model_Stock::BACKORDERS_NO
-            && $this->getQty() <= $this->getMinQty()) {
-            if(!$this->getProduct() || !$this->getProduct()->isSuper()) {
-                $this->setIsInStock(false);
+        // see if quantity is defined for this item type
+        $typeId = $this->getTypeId();
+        if ($product = $this->getProduct()) {
+            $typeId = $product->getTypeId();
+        }
+        $isQty = Mage::helper('catalogInventory')->isQty($typeId);
+
+        if ($isQty) {
+            if ($this->getBackorders() == Mage_CatalogInventory_Model_Stock::BACKORDERS_NO
+                && $this->getQty() <= $this->getMinQty()) {
+                $this->setIsInStock(false)
+                    ->setStockStatusChangedAutomaticallyFlag(true);
+            }
+
+            // if qty is below notify qty, update the low stock date to today date otherwise set null
+            $this->setLowStockDate(null);
+            if ((float)$this->getQty() < $this->getNotifyStockQty()) {
+                $this->setLowStockDate(Mage::app()->getLocale()->date(null, null, null, false)
+                    ->toString(Varien_Date::DATETIME_INTERNAL_FORMAT)
+                );
+            }
+
+            $this->setStockStatusChangedAutomatically(0);
+            if ($this->hasStockStatusChangedAutomaticallyFlag()) {
+                $this->setStockStatusChangedAutomatically((int)$this->getStockStatusChangedAutomaticallyFlag());
             }
         }
-        /**
-         * if qty is below notify qty, update the low stock date to today date otherwise set null
-         */
-        if ($this->getNotifyStockQty() && $this->getQty()<$this->getNotifyStockQty()
-            && (!$this->getProduct() || !$this->getProduct()->isSuper())) {
-            $this->setLowStockDate($this->_getResource()->formatDate(time()));
-        } else {
-            $this->setLowStockDate(false);
+        else {
+            $this->setQty(0);
         }
-        Mage::dispatchEvent('cataloginventory_stock_item_save_before', array('item'=>$this));
+
+        Mage::dispatchEvent('cataloginventory_stock_item_save_before', array('item' => $this));
         return $this;
+    }
+
+    public function getIsInStock()
+    {
+        if (!$this->getManageStock()) {
+            return true;
+        }
+        return $this->_getData('is_in_stock');
     }
 }

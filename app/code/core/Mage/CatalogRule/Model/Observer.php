@@ -12,20 +12,38 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_CatalogRule
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
-
+/**
+ * Catalog Price rules observer model
+ */
 class Mage_CatalogRule_Model_Observer
 {
     protected $_rulePrices = array();
 
+    /**
+     * Apply all catalog price rules for specific product
+     *
+     * @param   Varien_Event_Observer $observer
+     * @return  Mage_CatalogRule_Model_Observer
+     */
     public function applyAllRulesOnProduct($observer)
     {
         $product = $observer->getEvent()->getProduct();
+        if ($product->getIsMassupdate()) {
+            return;
+        }
+
         $productWebsiteIds = $product->getWebsiteIds();
 
         $rules = Mage::getModel('catalogrule/rule')->getCollection()
@@ -40,23 +58,44 @@ class Mage_CatalogRule_Model_Observer
             $websiteIds = array_intersect($productWebsiteIds, $ruleWebsiteIds);
             $rule->applyToProduct($product, $websiteIds);
         }
+        return $this;
     }
 
     /**
-     * Processing final price on frontend
+     * Apply all price rules for current date
+     *
+     * @param   Varien_Event_Observer $observer
+     * @return  Mage_CatalogRule_Model_Observer
+     */
+    public function applyAllRules($observer)
+    {
+        $resource = Mage::getResourceSingleton('catalogrule/rule');
+        $resource->applyAllRulesForDateRange($resource->formatDate(mktime(0,0,0)));
+        Mage::app()->removeCache('catalog_rules_dirty');
+        return $this;
+    }
+
+    /**
+     * Apply catalog price rules to product on frontend
+     *
+     * @return  Mage_CatalogRule_Model_Observer
      */
     public function processFrontFinalPrice($observer)
     {
+        $product    = $observer->getEvent()->getProduct();
+        $pId        = $product->getId();
+        $storeId    = $product->getStoreId();
+
         if ($observer->hasDate()) {
             $date = $observer->getDate();
         } else {
-            $date = mktime(0,0,0);
+            $date = Mage::app()->getLocale()->storeDate($storeId);
         }
 
         if ($observer->hasWebsiteId()) {
             $wId = $observer->getWebsiteId();
         } else {
-            $wId = Mage::app()->getWebsite()->getId();
+            $wId = Mage::app()->getStore($storeId)->getWebsiteId();
         }
 
         if ($observer->hasCustomerGroupId()) {
@@ -64,9 +103,6 @@ class Mage_CatalogRule_Model_Observer
         } else {
             $gId = Mage::getSingleton('customer/session')->getCustomerGroupId();
         }
-
-        $product = $observer->getEvent()->getProduct();
-        $pId = $product->getId();
 
         $key = "$date|$wId|$gId|$pId";
         if (!isset($this->_rulePrices[$key])) {
@@ -82,14 +118,18 @@ class Mage_CatalogRule_Model_Observer
     }
 
     /**
-     * Processing final price in admin
+     * Apply catalog price rules to product in admin
+     *
+     * @return  Mage_CatalogRule_Model_Observer
      */
     public function processAdminFinalPrice($observer)
     {
         $product = $observer->getEvent()->getProduct();
+        $storeId = $product->getStoreId();
+        $date = Mage::app()->getLocale()->storeDate($storeId);
         $key = false;
+
         if ($ruleData = Mage::registry('rule_data')) {
-            $date = mktime(0,0,0);
             $wId = $ruleData->getWebsiteId();
             $gId = $ruleData->getCustomerGroupId();
             $pId = $product->getId();
@@ -97,7 +137,6 @@ class Mage_CatalogRule_Model_Observer
             $key = "$date|$wId|$gId|$pId";
         }
         elseif ($product->getWebsiteId() != null && $product->getCustomerGroupId() != null) {
-            $date = mktime(0,0,0);
             $wId = $product->getWebsiteId();
             $gId = $product->getCustomerGroupId();
             $pId = $product->getId();
@@ -118,13 +157,19 @@ class Mage_CatalogRule_Model_Observer
         return $this;
     }
 
-    public function dailyCatalogUpdate($schedule)
+    /**
+     * Daily update catalog price rule by cron
+     * Update include interval 3 days - current day - 1 days before + 1 days after
+     * This method is called from cron process, cron is workink in UTC time and
+     * we shold generate data for interval -1 day ... +1 day
+     *
+     * @param   Varien_Event_Observer $observer
+     * @return  Mage_CatalogRule_Model_Observer
+     */
+    public function dailyCatalogUpdate($observer)
     {
-        $resource = Mage::getResourceSingleton('catalogrule/rule');
-        $resource->applyAllRulesForDateRange(
-            $resource->formatDate(mktime(0,0,0)),
-            $resource->formatDate(mktime(0,0,0,date('m'),date('d')+1))
-        );
+        Mage::getResourceSingleton('catalogrule/rule')->applyAllRulesForDateRange();
+        return $this;
     }
 
     public function flushPriceCache()

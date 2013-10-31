@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Adminhtml
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -23,20 +29,11 @@
  *
  * @category   Mage
  * @package    Mage_Adminhtml
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 
-class Mage_Adminhtml_Block_Sales_Order_Creditmemo_Create_Items extends Mage_Adminhtml_Block_Sales_Order_Abstract
+class Mage_Adminhtml_Block_Sales_Order_Creditmemo_Create_Items extends Mage_Adminhtml_Block_Sales_Items_Abstract
 {
-    /**
-     * Initialize template
-     */
-    protected function _construct()
-    {
-        parent::_construct();
-        $this->setTemplate('sales/order/creditmemo/create/items.phtml');
-        $this->setOrder($this->getCreditmemo()->getOrder());
-    }
-
     /**
      * Prepare child blocks
      *
@@ -89,27 +86,55 @@ class Mage_Adminhtml_Block_Sales_Order_Creditmemo_Create_Items extends Mage_Admi
             );
         }
 
-
-        $totalsBlock = $this->getLayout()->createBlock('adminhtml/sales_order_totals')
-            ->setTemplate('sales/order/creditmemo/create/totals.phtml')
-            ->setSource($this->getCreditmemo())
-            ->setOrder($this->getCreditmemo()->getOrder());
-        $this->setChild('totals', $totalsBlock);
-
-        $orderPayment = $this->getCreditmemo()->getOrder()->getPayment();
-        $this->setPriceDataObject($orderPayment);
-        $totalsBarBlock = $this->getLayout()->createBlock('adminhtml/sales_order_totalbar')
-            ->setOrder($this->getCreditmemo()->getOrder())
-            ->addTotal(Mage::helper('sales')->__('Paid Amount'), $this->displayPriceAttribute('amount_paid'))
-            ->addTotal(Mage::helper('sales')->__('Refund Amount'), $this->displayPriceAttribute('amount_refunded'))
-            ->addTotal(Mage::helper('sales')->__('Shipping Amount'), $this->displayPriceAttribute('shipping_captured'))
-            ->addTotal(Mage::helper('sales')->__('Shipping Refund'), $this->displayPriceAttribute('shipping_refunded'));
-        $this->setPriceDataObject($this->getCreditmemo()->getOrder());
-        $totalsBarBlock->addTotal(Mage::helper('sales')->__('Order Grand Total'), $this->displayPriceAttribute('grand_total'), true);
-
-        $this->setChild('totals_bar', $totalsBarBlock);
-
         return parent::_prepareLayout();
+    }
+
+    /**
+     * Retrieve invoice order
+     *
+     * @return Mage_Sales_Model_Order
+     */
+    public function getOrder()
+    {
+        return $this->getCreditmemo()->getOrder();
+    }
+
+    /**
+     * Retrieve source
+     *
+     * @return Mage_Sales_Model_Order_Creditmemo
+     */
+    public function getSource()
+    {
+        return $this->getCreditmemo();
+    }
+
+    /**
+     * Retrieve order totals block settings
+     *
+     * @return array
+     */
+    public function getOrderTotalData()
+    {
+        return array();
+    }
+
+    /**
+     * Retrieve order totalbar block data
+     *
+     * @return array
+     */
+    public function getOrderTotalbarData()
+    {
+        $totalbarData = array();
+        $this->setPriceDataObject($this->getOrder());
+        $totalbarData[] = array(Mage::helper('sales')->__('Paid Amount'), $this->displayPriceAttribute('base_total_invoiced'), false);
+        $totalbarData[] = array(Mage::helper('sales')->__('Refund Amount'), $this->displayPriceAttribute('base_total_refunded'), false);
+        $totalbarData[] = array(Mage::helper('sales')->__('Shipping Amount'), $this->displayPriceAttribute('base_shipping_invoiced'), false);
+        $totalbarData[] = array(Mage::helper('sales')->__('Shipping Refund'), $this->displayPriceAttribute('base_shipping_refunded'), false);
+        $totalbarData[] = array(Mage::helper('sales')->__('Order Grand Total'), $this->displayPriceAttribute('base_grand_total'), true);
+
+        return $totalbarData;
     }
 
     /**
@@ -143,21 +168,18 @@ class Mage_Adminhtml_Block_Sales_Order_Creditmemo_Create_Items extends Mage_Admi
         ));
     }
 
-    protected function _getQtyBlock()
-    {
-        $block = $this->getData('_qty_block');
-        if (is_null($block)) {
-            $block = $this->getLayout()->createBlock('adminhtml/sales_order_item_qty');
-            $this->setData('_qty_block', $block);
+    public function canReturnToStock() {
+
+        $canReturnToStock = Mage::getStoreConfig(Mage_CatalogInventory_Model_Stock_Item::XML_PATH_CAN_SUBTRACT);
+        if (Mage::getStoreConfig(Mage_CatalogInventory_Model_Stock_Item::XML_PATH_CAN_SUBTRACT)) {
+            return true;
+        } else {
+            return false;
         }
-        return $block;
     }
 
-    public function getQtyHtml($item)
+    public function canSendCreditmemoEmail()
     {
-        $html = $this->_getQtyBlock()
-            ->setItem($item)
-            ->toHtml();
-        return $html;
+        return Mage::helper('sales')->canSendNewCreditmemoEmail($this->getOrder()->getStore()->getId());
     }
 }

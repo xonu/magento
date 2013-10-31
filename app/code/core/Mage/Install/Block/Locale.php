@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Install
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -23,6 +29,7 @@
  *
  * @category   Mage
  * @package    Mage_Install
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Install_Block_Locale extends Mage_Install_Block_Abstract
 {
@@ -111,7 +118,9 @@ class Mage_Install_Block_Locale extends Mage_Install_Block_Abstract
      */
     public function getTimezone()
     {
-        $timezone = Mage::app()->getLocale()->getTimezone();
+        $timezone = Mage::getSingleton('install/session')->getTimezone()
+            ? Mage::getSingleton('install/session')->getTimezone()
+            : Mage::app()->getLocale()->getTimezone();
         if ($timezone == Mage_Core_Model_Locale::DEFAULT_TIMEZONE) {
             $timezone = 'America/Los_Angeles';
         }
@@ -143,7 +152,9 @@ class Mage_Install_Block_Locale extends Mage_Install_Block_Abstract
      */
     public function getCurrency()
     {
-        return Mage::app()->getLocale()->getCurrency();
+        return Mage::getSingleton('install/session')->getCurrency()
+            ? Mage::getSingleton('install/session')->getCurrency()
+            : Mage::app()->getLocale()->getCurrency();
     }
 
     public function getFormData()

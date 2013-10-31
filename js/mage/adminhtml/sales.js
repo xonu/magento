@@ -3,16 +3,22 @@
  *
  * NOTICE OF LICENSE
  *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
+ * This source file is subject to the Academic Free License (AFL 3.0)
+ * that is bundled with this package in the file LICENSE_AFL.txt.
  * It is also available through the world-wide-web at this URL:
- * http://opensource.org/licenses/osl-3.0.php
+ * http://opensource.org/licenses/afl-3.0.php
  * If you did not receive a copy of the license and are unable to
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
- * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @license    http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
  */
 var AdminOrder = new Class.create();
 AdminOrder.prototype = {
@@ -22,13 +28,14 @@ AdminOrder.prototype = {
         this.customerId     = data.customer_id ? data.customer_id : false;
         this.storeId        = data.store_id ? data.store_id : false;
         this.currencyId     = false;
-        this.addresses      = data.addresses ? data.addresses : new Hash();
+        this.addresses      = data.addresses ? data.addresses : $H({});
         this.shippingAsBilling = data.shippingAsBilling ? data.shippingAsBilling : false;
         this.gridProducts   = $H({});
         this.gridProductsGift = $H({});
         this.billingAddressContainer = '';
         this.shippingAddressContainer= '';
         this.isShippingMethodReseted = data.shipping_method_reseted ? data.shipping_method_reseted : false;
+        this.overlayData = $H({});
     },
 
     setLoadBaseUrl : function(url){
@@ -42,10 +49,20 @@ AdminOrder.prototype = {
     setCustomerId : function(id){
         this.customerId = id;
         this.loadArea('header', true);
+        $(this.getAreaId('header')).callback = 'setCustomerAfter';
         $('back_order_top_button').hide();
         $('reset_order_top_button').show();
+    },
+
+    setCustomerAfter : function () {
         this.customerSelectorHide();
-        this.storeSelectorShow();
+        if (this.storeId) {
+            $(this.getAreaId('data')).callback = 'dataShow';
+            this.loadArea(['data'], true);
+        }
+        else {
+            this.storeSelectorShow();
+        }
     },
 
     setStoreId : function(id){
@@ -63,7 +80,8 @@ AdminOrder.prototype = {
         this.loadArea(['data'], true);
     },
 
-    selectAddress : function(id, container){
+    selectAddress : function(el, container){
+        id = el.value;
         if(this.addresses[id]){
             this.fillAddressFields(container, this.addresses[id]);
         }
@@ -72,7 +90,7 @@ AdminOrder.prototype = {
         }
 
         var data = this.serializeData(container);
-        data['order[customer_address_id]'] = id;
+        data[el.name] = id;
         if(this.isShippingField(container) && !this.isShippingMethodReseted){
             this.resetShippingMethod(data);
         }
@@ -93,7 +111,7 @@ AdminOrder.prototype = {
     },
 
     bindAddressFields : function(container) {
-        var fields = $(container).getElementsBySelector('input', 'select');
+        var fields = $(container).select('input', 'select');
         for(var i=0;i<fields.length;i++){
             Event.observe(fields[i], 'change', this.changeAddressField.bind(this));
         }
@@ -113,6 +131,7 @@ AdminOrder.prototype = {
         else{
             data = this.serializeData(this.shippingAddressContainer)
         }
+        data = data.toObject();
 
         if(name == 'postcode' || name == 'country_id' || name == 'region_id'){
             if( (type == 'billing' && this.shippingAsBilling)
@@ -120,6 +139,8 @@ AdminOrder.prototype = {
                 data['reset_shipping'] = true;
             }
         }
+
+        data['order['+type+'_address][customer_address_id]'] = $('order:'+type+'_address_customer_address_id').value;
 
         if (data['reset_shipping']) {
             this.resetShippingMethod(data);
@@ -134,7 +155,7 @@ AdminOrder.prototype = {
     fillAddressFields : function(container, data){
         var regionIdElem = false;
         var regionIdElemValue = false;
-        var fields = $(container).getElementsBySelector('input', 'select');
+        var fields = $(container).select('input', 'select');
         var re = /[^\[]*\[[^\]]*\]\[([^\]]*)\](\[(\d)\])?/;
         for(var i=0;i<fields.length;i++){
             var matchRes = fields[i].name.match(re);
@@ -167,7 +188,7 @@ AdminOrder.prototype = {
             $('order:shipping_address_customer_address_id').disabled=flag;
         }
         if($(this.shippingAddressContainer)){
-            var dataFields = $(this.shippingAddressContainer).getElementsBySelector('input', 'select');
+            var dataFields = $(this.shippingAddressContainer).select('input', 'select');
             for(var i=0;i<dataFields.length;i++) dataFields[i].disabled = flag;
         }
     },
@@ -180,6 +201,7 @@ AdminOrder.prototype = {
         else{
             var data = this.serializeData(this.shippingAddressContainer);
         }
+        data = data.toObject();
         data['shipping_as_billing'] = flag ? 1 : 0;
         data['reset_shipping'] = 1;
         this.loadArea(['shipping_method', 'billing_method', 'shipping_address', 'totals', 'giftmessage'], true, data);
@@ -197,14 +219,14 @@ AdminOrder.prototype = {
     },
 
     setShippingMethod : function(method){
-        var data = $H({});
+        var data = {};
         data['order[shipping_method]'] = method;
         this.loadArea(['shipping_method', 'totals', 'billing_method'], true, data);
     },
 
     switchPaymentMethod : function(method){
         this.setPaymentMethod(method);
-        var data = $H({});
+        var data = {};
         data['order[payment_method]'] = method;
         this.saveData(data);
     },
@@ -213,12 +235,12 @@ AdminOrder.prototype = {
         if (this.paymentMethod && $('payment_form_'+this.paymentMethod)) {
             var form = $('payment_form_'+this.paymentMethod);
             form.hide();
-            var elements = form.getElementsBySelector('input', 'select');
+            var elements = form.select('input', 'select');
             for (var i=0; i<elements.length; i++) elements[i].disabled = true;
         }
 
         if(!this.paymentMethod || method){
-            $('order:billing_method').getElementsBySelector('input', 'select').each(function(elem){
+            $('order:billing_method').select('input', 'select').each(function(elem){
                 if(elem.type != 'radio') elem.disabled = true;
             })
         }
@@ -227,7 +249,7 @@ AdminOrder.prototype = {
             this.paymentMethod = method;
             var form = $('payment_form_'+method);
             form.show();
-            var elements = form.getElementsBySelector('input', 'select');
+            var elements = form.select('input', 'select');
             for (var i=0; i<elements.length; i++) {
                 elements[i].disabled = false;
                 if(!elements[i].bindChange){
@@ -242,8 +264,8 @@ AdminOrder.prototype = {
     changePaymentData : function(event){
         var elem = Event.element(event);
         if(elem && elem.paymentContainer){
-            var data = $H({});
-            var fields = $(elem.paymentContainer).getElementsBySelector('input', 'select');
+            var data = {};
+            var fields = $(elem.paymentContainer).select('input', 'select');
             for(var i=0;i<fields.length;i++){
                 data[fields[i].name] = fields[i].getValue();
             }
@@ -279,15 +301,15 @@ AdminOrder.prototype = {
     },
 
     productGridRowInit : function(grid, row){
-        var checkbox = $(row).getElementsByClassName('checkbox')[0];
-        var inputs = $(row).getElementsByClassName('input-text');
+        var checkbox = $(row).select('.checkbox')[0];
+        var inputs = $(row).select('.input-text');
         if (checkbox && inputs.length > 0) {
             checkbox.inputElements = inputs;
             for (var i = 0; i < inputs.length; i++) {
                 inputs[i].checkboxElement = checkbox;
-                if (this.gridProducts[checkbox.value] && this.gridProducts[checkbox.value][inputs[i].name] && inputs[i].name != 'giftmessage') {
-                    inputs[i].value = this.gridProducts[checkbox.value][inputs[i].name];
-                } else if (this.gridProducts[checkbox.value] && this.gridProducts[checkbox.value][inputs[i].name]) {
+                if (this.gridProducts.get(checkbox.value) && this.gridProducts.get(checkbox.value)[inputs[i].name] && inputs[i].name != 'giftmessage') {
+                    inputs[i].value = this.gridProducts.get(checkbox.value)[inputs[i].name];
+                } else if (this.gridProducts.get(checkbox.value) && this.gridProducts.get(checkbox.value)[inputs[i].name]) {
                     inputs[i].checked = true;
                 }
                 inputs[i].disabled = !checkbox.checked;
@@ -301,9 +323,9 @@ AdminOrder.prototype = {
         var element = Event.element(event);
         if (element && element.checkboxElement && element.checkboxElement.checked){
             if (element.name!='giftmessage' || element.checked) {
-                this.gridProducts[element.checkboxElement.value][element.name] = element.value;
-            } else if (element.name=='giftmessage' && this.gridProducts[element.checkboxElement.value][element.name]) {
-                delete(this.gridProducts[element.checkboxElement.value][element.name]);
+                this.gridProducts.get(element.checkboxElement.value)[element.name] = element.value;
+            } else if (element.name=='giftmessage' && this.gridProducts.get(element.checkboxElement.value)[element.name]) {
+                delete(this.gridProducts.get(element.checkboxElement.value)[element.name]);
             }
         }
     },
@@ -312,7 +334,7 @@ AdminOrder.prototype = {
         var trElement = Event.findElement(event, 'tr');
         var isInput = Event.element(event).tagName == 'INPUT';
         if (trElement) {
-            var checkbox = Element.getElementsBySelector(trElement, 'input');
+            var checkbox = Element.select(trElement, 'input');
             if (checkbox[0]) {
                 var checked = isInput ? checkbox[0].checked : !checkbox[0].checked;
                 grid.setCheckboxChecked(checkbox[0], checked);
@@ -323,7 +345,7 @@ AdminOrder.prototype = {
     productGridCheckboxCheck : function(grid, element, checked){
         if (checked) {
             if(element.inputElements) {
-                this.gridProducts[element.value]={};
+                this.gridProducts.set(element.value, {});
                 for(var i = 0; i < element.inputElements.length; i++) {
                     element.inputElements[i].disabled = false;
                     if (element.inputElements[i].name == 'qty') {
@@ -332,9 +354,9 @@ AdminOrder.prototype = {
                         }
                     }
                     if (element.inputElements[i].name!='giftmessage' || element.inputElements[i].checked) {
-                        this.gridProducts[element.value][element.inputElements[i].name] = element.inputElements[i].value;
-                    } else if (element.inputElements[i].name=='giftmessage' && this.gridProducts[element.value][element.inputElements[i].name]) {
-                        delete(this.gridProducts[element.value][element.inputElements[i].name]);
+                        this.gridProducts.get(element.value)[element.inputElements[i].name] = element.inputElements[i].value;
+                    } else if (element.inputElements[i].name=='giftmessage' && this.gridProducts.get(element.value)[element.inputElements[i].name]) {
+                        delete(this.gridProducts.get(element.value)[element.inputElements[i].name]);
                     }
                 }
             }
@@ -344,14 +366,14 @@ AdminOrder.prototype = {
                     element.inputElements[i].disabled = true;
                 }
             }
-            this.gridProducts.remove(element.value);
+            this.gridProducts.unset(element.value);
         }
         grid.reloadParams = {'products[]':this.gridProducts.keys()};
     },
 
     productGridAddSelected : function(){
         if(this.productGridShowButton) Element.show(this.productGridShowButton);
-        var data = $H({});
+        var data = {};
         data['add_products'] = this.gridProducts.toJSON();
         data['reset_shipping'] = 1;
         this.gridProducts = $H({});
@@ -361,8 +383,8 @@ AdminOrder.prototype = {
 
     selectCustomer : function(grid, event){
         var element = Event.findElement(event, 'tr');
-        if(element.id){
-            this.setCustomerId(element.id);
+        if (element.title){
+            this.setCustomerId(element.title);
         }
     },
 
@@ -395,8 +417,8 @@ AdminOrder.prototype = {
 
     sidebarApplyChanges : function(){
         if($(this.getAreaId('sidebar'))){
-            var data  = $H({});
-            var elems = $(this.getAreaId('sidebar')).getElementsBySelector('input');
+            var data  = {};
+            var elems = $(this.getAreaId('sidebar')).select('input');
             for(var i=0; i<elems.length; i++){
                 if(elems[i].getValue()){
                     data[elems[i].name] = elems[i].getValue();
@@ -428,8 +450,8 @@ AdminOrder.prototype = {
     },
 
     itemsUpdate : function(){
-        var info = $('order:items_grid').getElementsBySelector('input', 'select');
-        var data = $H({});
+        var info = $('order:items_grid').select('input', 'select', 'textarea');
+        var data = {};
         for(var i=0; i<info.length; i++){
             if(!info[i].disabled && (info[i].type != 'checkbox' || info[i].checked)) {
                 data[info[i].name] = info[i].getValue();
@@ -442,7 +464,7 @@ AdminOrder.prototype = {
     },
 
     itemsOnchangeBind : function(){
-        var elems = $('order:items_grid').getElementsBySelector('input', 'select');
+        var elems = $('order:items_grid').select('input', 'select', 'textarea');
         for(var i=0; i<elems.length; i++){
             if(!elems[i].bindOnchange){
                 elems[i].bindOnchange = true;
@@ -457,7 +479,7 @@ AdminOrder.prototype = {
 
     accountFieldsBind : function(container){
         if($(container)){
-            var fields = $(container).getElementsBySelector('input', 'select');
+            var fields = $(container).select('input', 'select');
             for(var i=0; i<fields.length; i++){
                 if(fields[i].id == 'group_id'){
                     fields[i].observe('change', this.accountGroupChange.bind(this))
@@ -470,7 +492,7 @@ AdminOrder.prototype = {
     },
 
     accountGroupChange : function(){
-        this.loadArea(['data'], true, this.serializeData('order:form_account'));
+        this.loadArea(['data'], true, this.serializeData('order:form_account').toObject());
     },
 
     accountFieldChange : function(){
@@ -479,7 +501,7 @@ AdminOrder.prototype = {
 
     commentFieldsBind : function(container){
         if($(container)){
-            var fields = $(container).getElementsBySelector('input', 'textarea');
+            var fields = $(container).select('input', 'textarea');
             for(var i=0; i<fields.length; i++)
                 fields[i].observe('change', this.commentFieldChange.bind(this))
         }
@@ -491,7 +513,7 @@ AdminOrder.prototype = {
 
     giftmessageFieldsBind : function(container){
         if($(container)){
-            var fields = $(container).getElementsBySelector('input', 'textarea');
+            var fields = $(container).select('input', 'textarea');
             for(var i=0; i<fields.length; i++)
                 fields[i].observe('change', this.giftmessageFieldChange.bind(this))
         }
@@ -526,6 +548,9 @@ AdminOrder.prototype = {
                         var id = this.loadingAreas[i];
                         if($(this.getAreaId(id))){
                             $(this.getAreaId(id)).update(response[id] ? response[id] : '');
+                            if ($(this.getAreaId(id)).callback) {
+                                this[$(this.getAreaId(id)).callback]();
+                            }
                         }
                     }
                 }.bind(this)
@@ -542,12 +567,25 @@ AdminOrder.prototype = {
 
     showArea : function(area){
         var id = this.getAreaId(area);
-        if($(id)) $(id).show();
+        if($(id)) {
+            $(id).show();
+            this.areaOverlay();
+        }
     },
 
     hideArea : function(area){
         var id = this.getAreaId(area);
-        if($(id)) $(id).hide();
+        if($(id)) {
+            $(id).hide();
+            this.areaOverlay();
+        }
+    },
+
+    areaOverlay : function()
+    {
+        $H(order.overlayData).each(function(e){
+            e.value.fx();
+        });
     },
 
     getAreaId : function(area){
@@ -555,13 +593,21 @@ AdminOrder.prototype = {
     },
 
     prepareParams : function(params){
-        if(!params) params = new Hash();
-        if(!params.customer_id) params.customer_id = this.customerId;
-        if(!params.store_id) params.store_id = this.storeId;
-        if(!params.currency_id) params.currency_id = this.currencyId;
+        if (!params) {
+            params = {};
+        }
+        if (!params.customer_id) {
+            params.customer_id = this.customerId;
+        }
+        if (!params.store_id) {
+            params.store_id = this.storeId;
+        }
+        if (!params.currency_id) {
+            params.currency_id = this.currencyId;
+        }
         var data = this.serializeData('order:billing_method');
         if (data) {
-            data.each(function(value){
+            data.each(function(value) {
                 params[value[0]] = value[1];
             });
         }
@@ -569,7 +615,7 @@ AdminOrder.prototype = {
     },
 
     serializeData : function(container){
-        var fields = $(container).getElementsBySelector('input', 'select', 'textarea');
+        var fields = $(container).select('input', 'select', 'textarea');
         var data = Form.serializeElements(fields, true);
 
         return $H(data);
@@ -603,5 +649,63 @@ AdminOrder.prototype = {
             //$('edit_form').submit();
             editForm.submit();
         }
+    },
+
+    overlay : function(elId, show, observe)
+    {
+        if (typeof(show) == 'undefined') { show = true; }
+
+        var orderObj = this;
+        var obj = this.overlayData.get(elId)
+        if (!obj) {
+            obj = {
+                show: show,
+                el: elId,
+                order: orderObj,
+                fx: function(event) {
+                    this.order.processOverlay(this.el, this.show);
+                }
+            }
+            obj.bfx = obj.fx.bindAsEventListener(obj);
+            this.overlayData.set(elId, obj);
+        }
+        else {
+            obj.show = show;
+            Event.stopObserving(window, 'resize', obj.bfx);
+        }
+
+        Event.observe(window, 'resize', obj.bfx);
+
+        this.processOverlay(elId, show);
+    },
+
+    processOverlay : function(elId, show)
+    {
+        var el = $(elId);
+        var parentEl = el.up(1);
+        var parentPos = Element.cumulativeOffset(parentEl);
+        if (show) {
+            parentEl.removeClassName('ignore-validate');
+        }
+        else {
+            parentEl.addClassName('ignore-validate');
+        }
+
+        if (Prototype.Browser.IE) {
+            parentEl.select('select').each(function (elem) {
+                show ? elem .show() : elem.hide();
+            });
+        }
+
+        el.setStyle({
+            display: show ? 'none' : '',
+            position: 'absolute',
+            backgroundColor: '#999999',
+            opacity: 0.8,
+            width: parentEl.getWidth() + 'px',
+            height: parentEl.getHeight() + 'px',
+            top: parentPos[1] + 'px',
+            left: parentPos[0] + 'px'
+        });
     }
 }

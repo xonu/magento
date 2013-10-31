@@ -12,18 +12,43 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Paypal
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
 /**
  * Paypal Standard Checkout Controller
  *
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Paypal_StandardController extends Mage_Core_Controller_Front_Action
 {
+    /**
+     * Order instance
+     */
+    protected $_order;
+
+    /**
+     *  Get order
+     *
+     *  @param    none
+     *  @return	  Mage_Sales_Model_Order
+     */
+    public function getOrder()
+    {
+        if ($this->_order == null) {
+        }
+        return $this->_order;
+    }
+
     protected function _expireAjax()
     {
         if (!Mage::getSingleton('checkout/session')->getQuote()->hasItems()) {
@@ -61,6 +86,15 @@ class Mage_Paypal_StandardController extends Mage_Core_Controller_Front_Action
     {
         $session = Mage::getSingleton('checkout/session');
         $session->setQuoteId($session->getPaypalStandardQuoteId(true));
+
+        // cancel order
+        if ($session->getLastRealOrderId()) {
+            $order = Mage::getModel('sales/order')->loadByIncrementId($session->getLastRealOrderId());
+            if ($order->getId()) {
+                $order->cancel()->save();
+            }
+        }
+
         /*we are calling getPaypalStandardQuoteId with true parameter, the session object will reset the session if parameter is true.
         so we don't need to manually unset the session*/
         //$session->unsPaypalStandardQuoteId();
@@ -69,7 +103,7 @@ class Mage_Paypal_StandardController extends Mage_Core_Controller_Front_Action
         //Mage::getSingleton('checkout/session')->getQuote()->setIsActive(true)->save();
         //and then redirect to checkout one page
         $this->_redirect('checkout/cart');
-     }
+    }
 
     /**
      * when paypal returns
@@ -86,19 +120,9 @@ class Mage_Paypal_StandardController extends Mage_Core_Controller_Front_Action
          */
         Mage::getSingleton('checkout/session')->getQuote()->setIsActive(false)->save();
 
-        /**
-         * send confirmation email to customer
-         */
-        $order = Mage::getModel('sales/order');
+        //Mage::getSingleton('checkout/session')->unsQuoteId();
 
-        $order->load(Mage::getSingleton('checkout/session')->getLastOrderId());
-        if($order->getId()){
-            $order->sendNewOrderEmail();
-        }
-
-        Mage::getSingleton('checkout/session')->unsQuoteId();
-
-        $this->_redirect('checkout/onepage/success');
+        $this->_redirect('checkout/onepage/success', array('_secure'=>true));
     }
 
     /**

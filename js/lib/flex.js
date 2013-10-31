@@ -3,16 +3,22 @@
  *
  * NOTICE OF LICENSE
  *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
+ * This source file is subject to the Academic Free License (AFL 3.0)
+ * that is bundled with this package in the file LICENSE_AFL.txt.
  * It is also available through the world-wide-web at this URL:
- * http://opensource.org/licenses/osl-3.0.php
+ * http://opensource.org/licenses/afl-3.0.php
  * If you did not receive a copy of the license and are unable to
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
- * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @license    http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
  */
 
 Flex = {};
@@ -409,7 +415,7 @@ function FABridge__bridgeInitialized(bridgeName)
 {
     var searchStr = "bridgeName="+ bridgeName;
 
-    if (/Explorer/.test(navigator.appName))
+    if (Prototype.Browser.IE)
     {
         var flashInstances = $$('object');
         if (flashInstances.size() == 1)
@@ -419,7 +425,7 @@ function FABridge__bridgeInitialized(bridgeName)
         else
         {
             flashInstances.each(function(inst){
-                var params = inst.getElementsBySelector('param');
+                var params = inst.select('param');
                 var flash_found = false;
 
                 params.each(function(param) {

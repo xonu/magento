@@ -12,15 +12,22 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Catalog
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
 /**
  * Catalog data helper
  *
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Catalog_Helper_Data extends Mage_Core_Helper_Abstract
 {
@@ -36,6 +43,7 @@ class Mage_Catalog_Helper_Data extends Mage_Core_Helper_Abstract
                 $pathIds = array_reverse(explode(',', $pathInStore));
 
                 $categories = Mage::getResourceModel('catalog/category_collection')
+                    ->setStore(Mage::app()->getStore())
                     ->addAttributeToSelect('name')
                     ->addAttributeToSelect('url_key')
                     ->addFieldToFilter('entity_id', array('in'=>$pathIds))
@@ -45,6 +53,7 @@ class Mage_Catalog_Helper_Data extends Mage_Core_Helper_Abstract
                 // add category path breadcrumb
                 foreach ($pathIds as $categoryId) {
                     if (isset($categories[$categoryId]) && $categories[$categoryId]->getName()) {
+                        $categories[$categoryId]->setStoreId(Mage::app()->getStore()->getId());
                         $path['category'.$categoryId] = array(
                             'label' => $categories[$categoryId]->getName(),
                             'link' => $this->_isCategoryLink($categoryId) ? $categories[$categoryId]->getUrl() : ''
@@ -103,4 +112,16 @@ class Mage_Catalog_Helper_Data extends Mage_Core_Helper_Abstract
         return '';
     }
 
+    /**
+     * Split SKU of an item by dashes and spaces
+     * Words will not be broken, unless thir length is greater than $length
+     *
+     * @param string $sku
+     * @param int $length
+     * @return array
+     */
+    public function splitSku($sku, $length = 30)
+    {
+        return Mage::helper('core/string')->str_split($sku, $length, true, false, '[\-\s]');
+    }
 }

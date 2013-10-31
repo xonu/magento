@@ -12,15 +12,22 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Payment
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
 /**
  * Payment method abstract model
  *
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 abstract class Mage_Payment_Model_Method_Abstract extends Varien_Object
 {
@@ -50,6 +57,7 @@ abstract class Mage_Payment_Model_Method_Abstract extends Varien_Object
     protected $_canUseInternal          = true;
     protected $_canUseCheckout          = true;
     protected $_canUseForMultishipping  = true;
+    protected $_isInitializeNeeded      = false;
 
     public function __construct()
     {
@@ -139,6 +147,16 @@ abstract class Mage_Payment_Model_Method_Abstract extends Varien_Object
     }
 
     /**
+     * Can be edit order (renew order)
+     *
+     * @return bool
+     */
+    public function canEdit()
+    {
+        return true;
+    }
+
+    /**
      * Retrieve payment system relation flag
      *
      * @return bool
@@ -146,6 +164,16 @@ abstract class Mage_Payment_Model_Method_Abstract extends Varien_Object
     public function isGateway()
     {
         return $this->_isGateway;
+    }
+
+    /**
+     * flag if we need to run payment initialize while order place
+     *
+     * @return bool
+     */
+    public function isInitializeNeeded()
+    {
+        return $this->_isInitializeNeeded;
     }
 
     /**
@@ -277,6 +305,18 @@ abstract class Mage_Payment_Model_Method_Abstract extends Varien_Object
         return $this;
     }
 
+    public function processInvoice($invoice, $payment)
+    {
+        $invoice->setTransactionId($payment->getLastTransId());
+        return $this;
+    }
+
+    public function processBeforeRefund($invoice, $payment)
+    {
+        $payment->setRefundTransactionId($invoice->getTransactionId());
+        return $this;
+    }
+
     /**
      * Refund money
      *
@@ -295,6 +335,12 @@ abstract class Mage_Payment_Model_Method_Abstract extends Varien_Object
         return $this;
     }
 
+    public function processCreditmemo($creditmemo, $payment)
+    {
+        $creditmemo->setTransactionId($payment->getLastTransId());
+        return $this;
+    }
+
     /**
      * Cancel payment (GoogleCheckout)
      *
@@ -306,6 +352,11 @@ abstract class Mage_Payment_Model_Method_Abstract extends Varien_Object
         return $this;
     }
 
+    public function processBeforeVoid($invoice, $payment)
+    {
+        $payment->setVoidTransactionId($invoice->getTransactionId());
+        return $this;
+    }
 
     /**
      * Void payment
@@ -337,10 +388,13 @@ abstract class Mage_Payment_Model_Method_Abstract extends Varien_Object
      * @param   string $field
      * @return  mixed
      */
-    public function getConfigData($field)
+    public function getConfigData($field, $storeId = null)
     {
+        if (null === $storeId) {
+            $storeId = $this->getStore();
+        }
         $path = 'payment/'.$this->getCode().'/'.$field;
-        return Mage::getStoreConfig($path, $this->getStore());
+        return Mage::getStoreConfig($path, $storeId);
     }
 
     /**
@@ -379,4 +433,17 @@ abstract class Mage_Payment_Model_Method_Abstract extends Varien_Object
     {
         return true;
     }
+
+    /**
+     * Method that will be executed instead of authorize or capture
+     * if flag isInitilizeNeeded set to true
+     *
+     * @param   string $paymentAction
+     * @return  Mage_Payment_Model_Abstract
+     */
+    public function initialize($paymentAction, $stateObject)
+    {
+        return $this;
+    }
+
 }

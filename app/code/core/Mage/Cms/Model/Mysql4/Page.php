@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Cms
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -23,6 +29,7 @@
  *
  * @category   Mage
  * @package    Mage_Cms
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 
 class Mage_Cms_Model_Mysql4_Page extends Mage_Core_Model_Mysql4_Abstract
@@ -40,6 +47,18 @@ class Mage_Cms_Model_Mysql4_Page extends Mage_Core_Model_Mysql4_Abstract
      */
     protected function _beforeSave(Mage_Core_Model_Abstract $object)
     {
+        $format = Mage::app()->getLocale()->getDateFormat(Mage_Core_Model_Locale::FORMAT_TYPE_SHORT);
+        foreach (array('custom_theme_from', 'custom_theme_to') as $dataKey) {
+            if ($date = $object->getData($dataKey)) {
+                $object->setData($dataKey, Mage::app()->getLocale()->date($date, $format, null, false)
+                    ->toString(Varien_Date::DATETIME_INTERNAL_FORMAT)
+                );
+            }
+            else {
+                $object->setData($dataKey, new Zend_Db_Expr('NULL'));
+            }
+        }
+
         if (!$this->getIsUniquePageToStores($object)) {
             Mage::throwException(Mage::helper('cms')->__('Page Identifier for specified store already exist.'));
         }
@@ -49,18 +68,10 @@ class Mage_Cms_Model_Mysql4_Page extends Mage_Core_Model_Mysql4_Abstract
         }
 
         if (! $object->getId()) {
-            $object->setCreationTime(now());
+            $object->setCreationTime(Mage::getSingleton('core/date')->gmtDate());
         }
 
-        $object->setUpdateTime(now());
-
-        if (!$object->getCustomThemeFrom()) {
-            $object->setCustomThemeFrom(new Zend_Db_Expr('NULL'));
-        }
-
-        if (!$object->getCustomThemeTo()) {
-            $object->setCustomThemeTo(new Zend_Db_Expr('NULL'));
-        }
+        $object->setUpdateTime(Mage::getSingleton('core/date')->gmtDate());
         return $this;
     }
 

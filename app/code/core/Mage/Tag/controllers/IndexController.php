@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Tag
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -23,6 +29,7 @@
  *
  * @category   Mage
  * @package    Mage_Tag
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 
 class Mage_Tag_IndexController extends Mage_Core_Controller_Front_Action
@@ -32,7 +39,7 @@ class Mage_Tag_IndexController extends Mage_Core_Controller_Front_Action
         if(!Mage::getSingleton('customer/session')->authenticate($this)) {
             return;
         }
-        $tagName    = (string) $this->getRequest()->getQuery('tagName');
+        $tagName    = (string) $this->getRequest()->getQuery('productTagName');
         $productId  = (int)$this->getRequest()->getParam('product');
 
         if(strlen($tagName) && $productId) {
@@ -40,7 +47,7 @@ class Mage_Tag_IndexController extends Mage_Core_Controller_Front_Action
             $product = Mage::getModel('catalog/product')
                 ->load($productId);
             if(!$product->getId()){
-                $session->addError($this->__('Unable to save tag(s)'));
+                $session->addError(Mage::helper('tag')->__('Unable to save tag(s)'));
             } else {
                 try {
                     $customerId = Mage::getSingleton('customer/session')->getCustomerId();
@@ -54,16 +61,18 @@ class Mage_Tag_IndexController extends Mage_Core_Controller_Front_Action
                             unset($tagNamesArr[$key]);
                         }
                     }
-
+                    $newCount = 0;
                     foreach( $tagNamesArr as $tagName ) {
                         if( $tagName ) {
                             $tagModel = Mage::getModel('tag/tag');
                             $tagModel->loadByName($tagName);
                             if ($tagModel->getId()) {
                                 $status = $tagModel->getStatus();
+                                $session->addNotice(Mage::helper('tag')->__('Tag "%s" has already been added to the product' ,$tagName));
                             }
                             else {
                                 $status = $tagModel->getPendingStatus();
+                                $newCount++;
                             }
 
                             $tagModel->setName($tagName)
@@ -74,7 +83,7 @@ class Mage_Tag_IndexController extends Mage_Core_Controller_Front_Action
                             $tagRelationModel = Mage::getModel('tag/tag_relation');
                             $tagRelationModel->loadByTagCustomer($productId,
                                 $tagModel->getId(),
-                                $session->getCustomerId(),
+                                $customerId,
                                 Mage::app()->getStore()->getId()
                             );
 
@@ -93,9 +102,11 @@ class Mage_Tag_IndexController extends Mage_Core_Controller_Front_Action
                             continue;
                         }
                     }
-                    $session->addSuccess($this->__('Your tag(s) have been accepted for moderation'));
+                    if ($newCount > 0) {
+                        $session->addSuccess(Mage::helper('tag')->__('%s tag(s) have been accepted for moderation', $newCount));
+                    }
                 } catch (Exception $e) {
-                    $session->addError($this->__('Unable to save tag(s)'));
+                    $session->addError(Mage::helper('tag')->__('Unable to save tag(s)'));
                 }
             }
         }

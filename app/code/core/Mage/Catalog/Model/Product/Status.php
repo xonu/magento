@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Catalog
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -23,21 +29,27 @@
  *
  * @category   Mage
  * @package    Mage_Catalog
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
-class Mage_Catalog_Model_Product_Status extends Varien_Object
+class Mage_Catalog_Model_Product_Status extends Mage_Core_Model_Abstract
 {
+    protected function _construct()
+    {
+        $this->_init('catalog/product_status');
+    }
+
     const STATUS_ENABLED    = 1;
     const STATUS_DISABLED   = 2;
 
     public function addVisibleFilterToCollection(Mage_Eav_Model_Entity_Collection_Abstract $collection)
     {
-        $collection->addAttributeToFilter('status', array('in'=>$this->getVisibleStatusIds()));
+        //$collection->addAttributeToFilter('status', array('in'=>$this->getVisibleStatusIds()));
         return $this;
     }
 
     public function addSaleableFilterToCollection(Mage_Eav_Model_Entity_Collection_Abstract $collection)
     {
-        $collection->addAttributeToFilter('status', array('in'=>$this->getSaleableStatusIds()));
+        //$collection->addAttributeToFilter('status', array('in'=>$this->getSaleableStatusIds()));
         return $this;
     }
 
@@ -83,5 +95,10 @@ class Mage_Catalog_Model_Product_Status extends Varien_Object
     {
         $options = self::getOptionArray();
         return isset($options[$optionId]) ? $options[$optionId] : null;
+    }
+
+    public function updateProductStatus($productId, $storeId, $value)
+    {
+        $this->_getResource()->updateProductStatus($productId, $storeId, $value);
     }
 }

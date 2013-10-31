@@ -3,16 +3,22 @@
  *
  * NOTICE OF LICENSE
  *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
+ * This source file is subject to the Academic Free License (AFL 3.0)
+ * that is bundled with this package in the file LICENSE_AFL.txt.
  * It is also available through the world-wide-web at this URL:
- * http://opensource.org/licenses/osl-3.0.php
+ * http://opensource.org/licenses/afl-3.0.php
  * If you did not receive a copy of the license and are unable to
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
- * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @license    http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
  */
 
 var VarienRulesForm = new Class.create();
@@ -67,7 +73,7 @@ VarienRulesForm.prototype = {
 	    for (i=0; i<values.length; i++) {
 	        s = values[i].strip();
 	        if (s!='') {
-	           this.chooserSelectedItems[s] = 1;
+	           this.chooserSelectedItems.set(s,1);
 	        }
 	    }
 	    new Ajax.Updater(chooser, chooser.getAttribute('url'), {
@@ -83,19 +89,26 @@ VarienRulesForm.prototype = {
     },
 
     showChooser: function (container, event) {
-    	var chooser = container.up('li').down('.rule-chooser');
-    	if (!chooser) {
-    	    return;
-    	}
-
+        var chooser = container.up('li');
+        if (!chooser) {
+            return;
+        }
+        chooser = chooser.down('.rule-chooser');
+        if (!chooser) {
+            return;
+        }
         this.showChooserElement(chooser);
     },
 
     hideChooser: function (container, event) {
-    	var chooser = container.up('li').down('.rule-chooser');
-    	if (!chooser) {
-    	    return;
-    	}
+        var chooser = container.up('li');
+        if (!chooser) {
+            return;
+        }
+        chooser = chooser.down('.rule-chooser');
+        if (!chooser) {
+            return;
+        }
         chooser.style.display = 'none';
     },
 
@@ -199,19 +212,19 @@ VarienRulesForm.prototype = {
     },
 
     addRuleNewChild: function (elem) {
-        var parent_id = elem.id.replace(/^.*:(.*):.*$/, '$1');
-        var children_ul = $(elem.id.replace(/[^:]*$/, 'children'));
+        var parent_id = elem.id.replace(/^.*__(.*)__.*$/, '$1');
+        var children_ul = $(elem.id.replace(/__/g, ':').replace(/[^:]*$/, 'children').replace(/:/g, '__'));
         var max_id = 0, i;
-        var children_inputs = Selector.findChildElements(children_ul, $A(['input[type=hidden]']));
+        var children_inputs = Selector.findChildElements(children_ul, $A(['input.hidden']));
         if (children_inputs.length) {
             children_inputs.each(function(el){
-                if (el.id.match(/:type$/)) {
-                    i = 1*el.id.replace(/^.*:.*([0-9]+):.*$/, '$1');
+                if (el.id.match(/__type$/)) {
+                    i = 1 * el.id.replace(/^.*__.*?([0-9]+)__.*$/, '$1');
                     max_id = i > max_id ? i : max_id;
                 }
             });
         }
-        var new_id = parent_id+'.'+(max_id+1);
+        var new_id = parent_id + '--' + (max_id + 1);
         var new_type = elem.value;
         var new_elem = document.createElement('LI');
         new_elem.className = 'rule-param-wait';
@@ -267,7 +280,7 @@ VarienRulesForm.prototype = {
         var trElement = Event.findElement(event, 'tr');
         var isInput = Event.element(event).tagName == 'INPUT';
         if (trElement) {
-            var checkbox = Element.getElementsBySelector(trElement, 'input');
+            var checkbox = Element.select(trElement, 'input');
             if (checkbox[0]) {
                 var checked = isInput ? checkbox[0].checked : !checkbox[0].checked;
                 grid.setCheckboxChecked(checkbox[0], checked);
@@ -279,7 +292,7 @@ VarienRulesForm.prototype = {
     chooserGridCheckboxCheck: function (grid, element, checked) {
         if (checked) {
             if (!element.up('th')) {
-                this.chooserSelectedItems[element.value]=1;
+                this.chooserSelectedItems.set(element.value,1);
             }
         } else {
             this.chooserSelectedItems.remove(element.value);

@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -82,8 +88,12 @@
  * --db_pass                    // required, Database User Password
  * --db_prefix                  // optional, Database Tables Prefix
  *                              // No table prefix will be used if not specified
+ * Session options:
+ * --session_save <files|db>    // optional, where to store session data - in db or files. files by default
  * Web access options:
+ * --admin_frontname <path>     // optional, admin panel path, "admin" by default
  * --url                        // required, URL the store is supposed to be available at
+ * --skip_url_validation        // optional, skip validating base url during installation or not. No by default
  * --use_rewrites               // optional, Use Web Server (Apache) Rewrites,
  *                              // You could enable this option to use web server rewrites functionality for improved SEO
  *                              // Please make sure that mod_rewrite is enabled in Apache configuration
@@ -112,9 +122,6 @@ if (version_compare(phpversion(), '5.2.0', '<')===true) {
 require 'app/Mage.php';
 
 try {
-
-    Mage::loadRequiredExtensions();
-
     $app = Mage::app('default');
 
     $installer = Mage::getSingleton('install/installer_console');
@@ -134,8 +141,12 @@ try {
 }
 
 // print all errors if there were any
-if ($app instanceof Mage_Core_Model_Installer_Console) {
-    foreach ($installer->getErrors() as $error) {
-        echo 'ERROR: ' . $error . "\n";
+if ($installer instanceof Mage_Install_Model_Installer_Console) {
+    if ($installer->getErrors()) {
+        echo "\nFAILED\n";
+        foreach ($installer->getErrors() as $error) {
+            echo $error . "\n";
+        }
     }
 }
+exit; // dont delete this

@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Core
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -27,18 +33,42 @@ class Mage_Core_Model_Mysql4_Website extends Mage_Core_Model_Mysql4_Abstract
         $this->_uniqueFields = array(array('field' => 'code', 'title' => Mage::helper('core')->__('Website with the same code')));
     }
 
-    protected function _beforeSave(Mage_Core_Model_Abstract $model)
+    /**
+     * Perform actions before object save
+     *
+     * @param Mage_Core_Model_Abstract $object
+     * @return Mage_Core_Model_Mysql4_Website
+     */
+    protected function _beforeSave(Mage_Core_Model_Abstract $object)
     {
-        if(!preg_match('/^[a-z]+[a-z0-9_]*$/',$model->getCode())) {
+        if(!preg_match('/^[a-z]+[a-z0-9_]*$/', $object->getCode())) {
             Mage::throwException(Mage::helper('core')->__('Website code should contain only letters (a-z), numbers (0-9) or underscore(_), first character should be a letter'));
         }
 
-        return $this;
+        return parent::_beforeSave($object);
     }
 
-    protected function _afterSave(Mage_Core_Model_Abstract $model)
+    /**
+     * Perform actions after object save
+     *
+     * @param Mage_Core_Model_Abstract $object
+     * @return Mage_Core_Model_Mysql4_Website
+     */
+    protected function _afterSave(Mage_Core_Model_Abstract $object)
     {
-        return $this;
+        if ($object->getIsDefault()) {
+            $this->_getWriteAdapter()->update(
+                $this->getMainTable(),
+                array('is_default' => 0),
+                1
+            );
+            $this->_getWriteAdapter()->update(
+                $this->getMainTable(),
+                array('is_default' => 1),
+                $this->_getWriteAdapter()->quoteInto('website_id=?', $object->getId())
+            );
+        }
+        return parent::_afterSave($object);
     }
 
     protected function _afterDelete(Mage_Core_Model_Abstract $model)

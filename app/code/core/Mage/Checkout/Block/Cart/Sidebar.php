@@ -12,62 +12,114 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
- * @category   Mage
- * @package    Mage_Checkout
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
- * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
+ * @category    Mage
+ * @package     Mage_Checkout
+ * @copyright   Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @license     http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
 
 /**
  * Wishlist sidebar block
  *
- * @category   Mage
- * @package    Mage_Checkout
+ * @category    Mage
+ * @package     Mage_Checkout
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Checkout_Block_Cart_Sidebar extends Mage_Checkout_Block_Cart_Abstract
 {
-    protected $_items;
-    protected $_subtotal;
+    const XML_PATH_CHECKOUT_SIDEBAR_COUNT   = 'checkout/sidebar/count';
 
-    protected function _getCartInfo()
+    public function __construct()
     {
-        if (!is_null($this->_items)) {
-            return;
-        }
-        $cart = Mage::getSingleton('checkout/cart')->getCartInfo();
-
-        $this->_items = $cart->getItems();
-        $this->_subtotal = $cart->getSubtotal();
-
-        usort($this->_items, array($this, 'sortByCreatedAt'));
+        parent::__construct();
+        $this->addItemRender('default', 'checkout/cart_item_renderer', 'checkout/cart/sidebar/default.phtml');
     }
 
-    public function getRecentItems()
+    /**
+     * Get array last added items
+     *
+     * @return array
+     */
+    public function getRecentItems($count = null)
     {
-        $this->_getCartInfo();
-        if (!$this->_items) {
-            return array();
+        if ($count === null) {
+            $count = $this->getData('item_count');
+        }
+        if ($count === null) {
+            $count = Mage::getStoreConfig(self::XML_PATH_CHECKOUT_SIDEBAR_COUNT);
+        }
+        $items = array();
+        if (!$this->getSummaryCount()) {
+            return $items;
         }
         $i = 0;
-        foreach ($this->_items as $quoteItem) {
-            $items[] = $quoteItem;
-            if (++$i==3) break;
+        $allItems = array_reverse($this->getItems());
+        foreach ($allItems as $item) {
+            $items[] = $item;
+            if (++$i == $count) {
+                break;
+            }
         }
         return $items;
     }
 
-    public function sortByCreatedAt($a, $b)
+    /**
+     * Get shopping cart subtotal.
+     * It will include tax, if required by config settings.
+     *
+     * @return decimal
+     */
+    public function getSubtotal($skipTax = false)
     {
-        $a1 = $a->getCreatedAt();
-        $b1 = $b->getCreatedAt();
-        return $a1<$b1 ? 1 : $a1>$b1 ? -1 : 0;
+        $subtotal = 0;
+        $totals = $this->getTotals();
+        if (isset($totals['subtotal'])) {
+            $subtotal = $totals['subtotal']->getValue();
+            if (!$skipTax) {
+                if ((!$this->helper('tax')->displayCartBothPrices()) && $this->helper('tax')->displayCartPriceInclTax()) {
+                    $subtotal = $this->_addTax($subtotal);
+                }
+            }
+        }
+        return $subtotal;
     }
 
-    public function getSubtotal()
+    /**
+     * Get subtotal, including tax.
+     * Will return > 0 only if appropriate config settings are enabled.
+     *
+     * @return decimal
+     */
+    public function getSubtotalInclTax()
     {
-        $this->_getCartInfo();
-        return $this->_subtotal;
+        if (!$this->helper('tax')->displayCartBothPrices()) {
+            return 0;
+        }
+        return $this->_addTax($this->getSubtotal(true));
+    }
+
+    private function _addTax($price, $exclShippingTax=true) {
+        $totals = $this->getTotals();
+        if (isset($totals['tax'])) {
+            if ($exclShippingTax) {
+                $price += $totals['tax']->getValue()-$this->_getShippingTaxAmount();
+            } else {
+                $price += $totals['tax']->getValue();
+            }
+        }
+        return $price;
+    }
+
+    protected function _getShippingTaxAmount()
+    {
+        return $this->getQuote()->getShippingAddress()->getShippingTaxAmount();
     }
 
     public function getSummaryCount()
@@ -75,24 +127,33 @@ class Mage_Checkout_Block_Cart_Sidebar extends Mage_Checkout_Block_Cart_Abstract
         return Mage::getSingleton('checkout/cart')->getSummaryQty();
     }
 
-    public function getCanDisplayCart()
-    {
-        return true;
-    }
-
-    public function getRemoveItemUrl($item)
-    {
-        return $this->helper('checkout/cart')->getRemoveUrl($item);
-    }
-
-    public function getMoveToWishlistItemUrl($item)
-    {
-        return $this->getUrl('checkout/cart/moveToWishlist',array('id'=>$item->getId()));
-    }
-
     public function getIncExcTax($flag)
     {
         $text = Mage::helper('tax')->getIncExcText($flag);
         return $text ? ' ('.$text.')' : '';
+    }
+
+    public function isPossibleOnepageCheckout()
+    {
+        return $this->helper('checkout')->canOnepageCheckout();
+    }
+
+    public function getCheckoutUrl()
+    {
+        return $this->helper('checkout/url')->getCheckoutUrl();
+    }
+
+    /**
+     * Render block HTML
+     *
+     * @return string
+     */
+    protected function _toHtml()
+    {
+        $html = '';
+        if ((bool) Mage::app()->getStore()->getConfig('checkout/sidebar/display')) {
+            $html = parent::_toHtml();
+        }
+        return $html;
     }
 }

@@ -12,16 +12,23 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Permissions
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
 class Mage_Admin_Model_User extends Mage_Core_Model_Abstract
 {
-    const XML_PATH_FORGOT_EMAIL_TEMPLATE    = 'system/emails/forgot_email_template';
-    const XML_PATH_FORGOT_EMAIL_IDENTITY    = 'system/emails/forgot_email_identity';
+    const XML_PATH_FORGOT_EMAIL_TEMPLATE    = 'admin/emails/forgot_email_template';
+    const XML_PATH_FORGOT_EMAIL_IDENTITY    = 'admin/emails/forgot_email_identity';
+    const XML_PATH_STARTUP_PAGE             = 'admin/startup/page';
 
     protected function _construct()
     {
@@ -115,6 +122,10 @@ class Mage_Admin_Model_User extends Mage_Core_Model_Abstract
      */
     public function sendNewPasswordEmail()
     {
+        $translate = Mage::getSingleton('core/translate');
+        /* @var $translate Mage_Core_Model_Translate */
+        $translate->setTranslateInline(false);
+
         Mage::getModel('core/email_template')
             ->setDesignConfig(array('area'=>'adminhtml', 'store'=>$this->getStoreId()))
             ->sendTransactional(
@@ -123,6 +134,9 @@ class Mage_Admin_Model_User extends Mage_Core_Model_Abstract
                 $this->getEmail(),
                 $this->getName(),
                 array('user'=>$this, 'password'=>$this->getPlainPassword()));
+
+        $translate->setTranslateInline(true);
+
         return $this;
     }
 
@@ -186,7 +200,9 @@ class Mage_Admin_Model_User extends Mage_Core_Model_Abstract
 
     public function reload()
     {
-        $this->load($this->getId());
+        $id = $this->getId();
+        $this->setId(null);
+        $this->load($id);
         return $this;
     }
 
@@ -222,5 +238,19 @@ class Mage_Admin_Model_User extends Mage_Core_Model_Abstract
                 }
             }
         }
+    }
+
+    public function getStatrupPageUrl()
+    {
+        $startupPage = Mage::getStoreConfig(self::XML_PATH_STARTUP_PAGE);
+        $aclResource = 'admin/'.$startupPage;
+        if (Mage::getSingleton('admin/session')->isAllowed($aclResource)) {
+            $nodePath = 'adminhtml/menu/' . join('/children/', split('/', $startupPage)) . '/action';
+            if ($url = Mage::getConfig()->getNode($nodePath)) {
+                return $url;
+            }
+        }
+
+        return $this->findFirstAvailableMenu();
     }
 }

@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Install
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -24,6 +30,7 @@
  *
  * @category   Mage
  * @package    Mage_Install
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Install_Model_Installer extends Varien_Object
 {
@@ -169,11 +176,13 @@ class Mage_Install_Model_Installer extends Varien_Object
 
         if (!empty($data['use_secure'])) {
             $setupModel->setConfigData(Mage_Core_Model_Store::XML_PATH_SECURE_IN_FRONTEND, 1);
-            $setupModel->setConfigData(Mage_Core_Model_Store::XML_PATH_UNSECURE_BASE_URL, $unsecureBaseUrl);
             $setupModel->setConfigData(Mage_Core_Model_Store::XML_PATH_SECURE_BASE_URL, $data['secure_base_url']);
             if (!empty($data['use_secure_admin'])) {
                 $setupModel->setConfigData(Mage_Core_Model_Store::XML_PATH_SECURE_IN_ADMINHTML, 1);
             }
+        }
+        elseif (!empty($data['unsecure_base_url'])) {
+            $setupModel->setConfigData(Mage_Core_Model_Store::XML_PATH_SECURE_BASE_URL, $unsecureBaseUrl);
         }
 
         /**
@@ -208,7 +217,7 @@ class Mage_Install_Model_Installer extends Varien_Object
         if ($user && $user->getPassword()=='4297f44b13955235245b2497399d7a93') {
             $user->delete();
         }
-        
+
         $user = Mage::getModel('admin/user')
             ->load($data['username'], 'username');
         $user->addData($data)->save();
@@ -246,8 +255,7 @@ class Mage_Install_Model_Installer extends Varien_Object
         foreach (Mage::helper('core')->getCacheTypes() as $type=>$label) {
             $cacheData[$type] = 1;
         }
-        Mage::app()->saveCache(serialize($cacheData), 'use_cache', array(), null);
-
+        Mage::app()->saveUseCache($cacheData);
         return $this;
     }
 

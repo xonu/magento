@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Catalog
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -24,10 +30,11 @@
  *
  * @category   Mage
  * @package    Mage_Catalog
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Catalog_Block_Product_List extends Mage_Catalog_Block_Product_Abstract
 {
-
+    protected $_defaultToolbarBlock = 'catalog/product_list_toolbar';
     protected $_productCollection;
 
     /**
@@ -39,6 +46,7 @@ class Mage_Catalog_Block_Product_List extends Mage_Catalog_Block_Product_Abstrac
     {
         if (is_null($this->_productCollection)) {
             $layer = Mage::getSingleton('catalog/layer');
+            /* @var $layer Mage_Catalog_Model_Layer */
             if ($this->getShowRootCategory()) {
                 $this->setCategoryId(Mage::app()->getStore()->getRootCategoryId());
             }
@@ -56,11 +64,27 @@ class Mage_Catalog_Block_Product_List extends Mage_Catalog_Block_Product_Abstrac
                 }
             }
 
+            $origCategory = null;
             if ($this->getCategoryId()) {
                 $category = Mage::getModel('catalog/category')->load($this->getCategoryId());
-                $layer->setCurrentCategory($category);
+                if ($category->getId()) {
+                    $origCategory = $layer->getCurrentCategory();
+                    $layer->setCurrentCategory($category);
+                }
             }
             $this->_productCollection = $layer->getProductCollection();
+
+            if ($sortField = $this->getSortBy()) {
+                $sortOrder = 'asc';
+                if (strtolower($this->getSortOrder()) == 'desc') {
+                    $sortOrder = 'desc';
+                }
+                $this->_productCollection->addAttributeToSort($sortField, $sortOrder);
+            }
+
+            if ($origCategory) {
+                $layer->setCurrentCategory($origCategory);
+            }
         }
         return $this->_productCollection;
     }
@@ -91,7 +115,11 @@ class Mage_Catalog_Block_Product_List extends Mage_Catalog_Block_Product_Abstrac
      */
     protected function _beforeToHtml()
     {
-        $toolbar = $this->getLayout()->createBlock('catalog/product_list_toolbar', microtime());
+        /*$toolbar = $this->getLayout()->createBlock('catalog/product_list_toolbar', microtime());
+        if ($toolbarTemplate = $this->getToolbarTemplate()) {
+            $toolbar->setTemplate($toolbarTemplate);
+        }*/
+        $toolbar = $this->getToolbarBlock();
         if ($orders = $this->getAvailableOrders()) {
             $toolbar->setAvailableOrders($orders);
         }
@@ -106,7 +134,18 @@ class Mage_Catalog_Block_Product_List extends Mage_Catalog_Block_Product_Abstrac
 
         $this->_getProductCollection()->load();
         Mage::getModel('review/review')->appendSummary($this->_getProductCollection());
-        return parent::_prepareLayout();
+        return parent::_beforeToHtml();
+    }
+
+    public function getToolbarBlock()
+    {
+        if ($blockName = $this->getToolbarBlockName()) {
+            if ($block = $this->getLayout()->getBlock($blockName)) {
+                return $block;
+            }
+        }
+        $block = $this->getLayout()->createBlock($this->_defaultToolbarBlock, microtime());
+        return $block;
     }
 
     /**
@@ -129,6 +168,11 @@ class Mage_Catalog_Block_Product_List extends Mage_Catalog_Block_Product_Abstrac
     {
         $this->_getProductCollection()->addAttributeToSelect($code);
         return $this;
+    }
+
+    public function getPriceBlockTemplate()
+    {
+        return $this->_getData('price_block_template');
     }
 
 }

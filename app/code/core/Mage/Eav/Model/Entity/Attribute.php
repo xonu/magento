@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Eav
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -66,6 +72,23 @@ class Mage_Eav_Model_Entity_Attribute extends Mage_Eav_Model_Entity_Attribute_Ab
 
     protected function _beforeSave()
     {
+        // prevent overriding product data
+        if (isset($this->_data['attribute_code'])
+            && Mage::getModel('catalog/product')->isReservedAttribute($this)) {
+            Mage::throwException(Mage::helper('eav')->__('The attribute code \'%s\' is reserved by system. Please, try another attribute code.', $this->_data['attribute_code']));
+        }
+
+        // prevent changing attribute scope, if used in configurable products
+        if (isset($this->_origData['is_global'])) {
+            if (!isset($this->_data['is_global'])) {
+                Mage::throwException('0_o');
+            }
+            if (($this->_data['is_global'] != $this->_origData['is_global'])
+                && $this->_getResource()->isUsedBySuperProducts($this)) {
+                Mage::throwException(Mage::helper('eav')->__('Scope must not be changed, because the attribute is used in configurable products.'));
+            }
+        }
+
         if ($this->getBackendType() == 'datetime') {
             if (!$this->getBackendModel()) {
                 $this->setBackendModel('eav/entity_attribute_backend_datetime');
@@ -73,6 +96,12 @@ class Mage_Eav_Model_Entity_Attribute extends Mage_Eav_Model_Entity_Attribute_Ab
 
             if (!$this->getFrontendModel()) {
                 $this->setFrontendModel('eav/entity_attribute_frontend_datetime');
+            }
+
+            // save default date value as timestamp
+            if ($defaultValue = $this->getDefaultValue()) {
+                $format = Mage::app()->getLocale()->getDateFormat(Mage_Core_Model_Locale::FORMAT_TYPE_SHORT);
+                $this->setDefaultValue(Mage::app()->getLocale()->date($defaultValue, $format, null, false)->toValue());
             }
         }
 

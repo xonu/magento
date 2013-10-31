@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Varien
  * @package    Varien_Image
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -23,6 +29,7 @@
  *
  * @category   Varien
  * @package    Varien_Image
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Varien_Image
 {
@@ -117,15 +124,41 @@ class Varien_Image
     /**
      * Resize an image
      *
-     * @param int $width. Default value is NULL
-     * @param int $height. Default value is NULL
+     * @param int $width
+     * @param int $height
      * @access public
      * @return void
      */
-    public function resize($width=null, $height=null)
+    public function resize($width, $height = null)
     {
         $this->_getAdapter()->resize($width, $height);
     }
+
+    public function keepAspectRatio($value)
+    {
+        return $this->_getAdapter()->keepAspectRatio($value);
+    }
+
+    public function keepFrame($value)
+    {
+        return $this->_getAdapter()->keepFrame($value);
+    }
+
+    public function keepTransparency($value)
+    {
+        return $this->_getAdapter()->keepTransparency($value);
+    }
+
+    public function constrainOnly($value)
+    {
+        return $this->_getAdapter()->constrainOnly($value);
+    }
+
+    public function backgroundColor($value)
+    {
+        return $this->_getAdapter()->backgroundColor($value);
+    }
+
 
     /**
      * Adds watermark to our image.

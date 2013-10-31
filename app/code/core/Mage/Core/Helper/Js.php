@@ -12,15 +12,22 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Core
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
 /**
  * JavaScript helper
  *
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Core_Helper_Js extends Mage_Core_Helper_Abstract
 {
@@ -72,14 +79,24 @@ class Mage_Core_Helper_Js extends Mage_Core_Helper_Abstract
             'Please enter valid password.' => $this->__('Please enter valid password.'),
             'Please enter 6 or more characters. Leading or trailing spaces will be ignored.' =>
                 $this->__('Please enter 6 or more characters. Leading or trailing spaces will be ignored.'),
+            'Please use letters only (a-z or A-Z) in this field.' => $this->__('Please use letters only (a-z or A-Z) in this field.'),
             'Please enter a number greater than 0 in this field.' =>
                 $this->__('Please enter a number greater than 0 in this field.'),
             'Please enter a valid credit card number.' => $this->__('Please enter a valid credit card number.'),
             'Please wait, loading...' => $this->__('Please wait, loading...'),
+            'Please choose to register or to checkout as a guest' => $this->__('Please choose to register or to checkout as a guest'),
+            'Error: Passwords do not match' => $this->__('Error: Passwords do not match'),
+            'Your order can not be completed at this time as there is no shipping methods available for it. Please make necessary changes in your shipping address.' =>
+                $this->__('Your order can not be completed at this time as there is no shipping methods available for it. Please make neccessary changes in your shipping address.'),
+            'Please specify shipping method.' => $this->__('Please specify shipping method.'),
+            'Your order can not be completed at this time as there is no payment methods available for it.' =>
+                $this->__('Your order can not be completed at this time as there is no payment methods available for it.'),
+            'Please specify payment method.' => $this->__('Please specify payment method.'),
 
 //Mage_Rule
 
             'Your session has been expired, you will be relogged in now.' => $this->__('Your session has been expired, you will be relogged in now.'),
+            'Incorrect credit card expiration date' => $this->__('Incorrect credit card expiration date'),
         );
     }
 

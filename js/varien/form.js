@@ -3,16 +3,22 @@
  *
  * NOTICE OF LICENSE
  *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
+ * This source file is subject to the Academic Free License (AFL 3.0)
+ * that is bundled with this package in the file LICENSE_AFL.txt.
  * It is also available through the world-wide-web at this URL:
- * http://opensource.org/licenses/osl-3.0.php
+ * http://opensource.org/licenses/afl-3.0.php
  * If you did not receive a copy of the license and are unable to
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
- * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @license    http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
  */
 VarienForm = Class.create();
 VarienForm.prototype = {
@@ -59,14 +65,14 @@ VarienForm.prototype = {
 
     elementOnFocus: function(event){
         var element = Event.findElement(event, 'fieldset');
-        if(element.className){
+        if(element && element.className){
             Element.addClassName(element, this.highlightClass);
         }
     },
 
     elementOnBlur: function(event){
         var element = Event.findElement(event, 'fieldset');
-        if(element.className){
+        if(element && element.className){
             Element.removeClassName(element, this.highlightClass);
         }
     },
@@ -132,7 +138,7 @@ VarienForm.prototype = {
                     }
                 }
                 html+= '</select>';
-                new Insertion.Before(child,html);
+                Element.insert(child, {before: html});
                 Element.remove(child);
             }
         }
@@ -140,7 +146,7 @@ VarienForm.prototype = {
             var child = $(this.cache[this.currLoader]['child']);
             if (child){
                 var html = '<input type="text" name="'+child.name+'" id="'+child.id+'" class="'+child.className+'" title="'+child.title+'" '+this.extraChildParams+'>';
-                new Insertion.Before(child,html);
+                Element.insert(child, {before: html});
                 Element.remove(child);
             }
         }
@@ -227,6 +233,11 @@ RegionUpdater.prototype = {
                     this.regionTextEl.disabled = false;
                 }
                 this.regionSelectEl.disabled = true;
+            } else if (this.disableAction=='nullify') {
+                this.regionSelectEl.options.length = 1;
+                this.regionSelectEl.value = '';
+                this.regionSelectEl.selectedIndex = 0;
+                this.lastCountryId = '';
             }
             this.setMarkDisplay(this.regionSelectEl, false);
         }
@@ -234,7 +245,7 @@ RegionUpdater.prototype = {
 
     setMarkDisplay: function(elem, display){
         if(elem.parentNode){
-            var marks = Element.getElementsByClassName(elem.parentNode, 'required');
+            var marks = Element.select(elem.parentNode, '.required');
             if(marks[0]){
                 display ? marks[0].show() : marks[0].hide();
             }

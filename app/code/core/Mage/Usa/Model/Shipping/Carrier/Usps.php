@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Usa
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -25,6 +31,7 @@
  * @link       http://www.usps.com/webtools/htm/Development-Guide.htm
  * @category   Mage
  * @package    Mage_Usa
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Usa_Model_Shipping_Carrier_Usps
     extends Mage_Usa_Model_Shipping_Carrier_Abstract
@@ -129,13 +136,13 @@ class Mage_Usa_Model_Shipping_Carrier_Usps
 
         $weight = $this->getTotalNumOfBoxes($request->getPackageWeight());
         $r->setWeightPounds(floor($weight));
-        $r->setWeightOunces(floor(($weight-floor($weight))*16));
-
+        $r->setWeightOunces(($weight-floor($weight))*16);
         if ($request->getFreeMethodWeight()!=$request->getPackageWeight()) {
             $r->setFreeMethodWeight($request->getFreeMethodWeight());
         }
 
         $r->setValue($request->getPackageValue());
+        $r->setValueWithDiscount($request->getPackageValueWithDiscount());
 
         $this->_rawRequest = $r;
 
@@ -174,12 +181,18 @@ class Mage_Usa_Model_Shipping_Carrier_Usps
             $package = $xml->addChild('Package');
                 $package->addAttribute('ID', 0);
                 $package->addChild('Service', $r->getService());
-    //          $package->addChild('FirstClassMailType', $r->getService());
+
+                // no matter Letter, Flat or Parcel, use Parcel
+                if ($r->getService() == 'FIRST CLASS') {
+                    $package->addChild('FirstClassMailType', 'PARCEL');
+                }
                 $package->addChild('ZipOrigination', $r->getOrigPostal());
                 //only 5 chars avaialble
                 $package->addChild('ZipDestination', substr($r->getDestPostal(),0,5));
                 $package->addChild('Pounds', $r->getWeightPounds());
                 $package->addChild('Ounces', $r->getWeightOunces());
+//                $package->addChild('Pounds', '0');
+//                $package->addChild('Ounces', '3');
                 $package->addChild('Container', $r->getContainer());
                 $package->addChild('Size', $r->getSize());
                 $package->addChild('Machinable', $r->getMachinable());
@@ -219,7 +232,6 @@ class Mage_Usa_Model_Shipping_Carrier_Usps
         } catch (Exception $e) {
             $responseBody = '';
         }
-
         return $this->_parseXmlResponse($responseBody);
     }
 
@@ -230,6 +242,10 @@ class Mage_Usa_Model_Shipping_Carrier_Usps
         $errorTitle = 'Unable to retrieve quotes';
         if (strlen(trim($response))>0) {
             if (strpos(trim($response), '<?xml')===0) {
+                if (preg_match('#<\?xml version="1.0"\?>#', $response)) {
+                    $response = str_replace('<?xml version="1.0"?>', '<?xml version="1.0" encoding="ISO-8859-1"?>', $response);
+                }
+
                 $xml = simplexml_load_string($response);
                     if (is_object($xml)) {
                         if (is_object($xml->Number) && is_object($xml->Description) && (string)$xml->Description!='') {
@@ -367,9 +383,10 @@ class Mage_Usa_Model_Shipping_Carrier_Usps
                 'Global Express Guaranteed Non-Document Rectangular'     => 'EXPRESS',
                 'Global Express Guaranteed Non-Document Non-Rectangular' => 'EXPRESS',
                 'Express Mail International (EMS)'                       => 'EXPRESS',
-                'Express Mail International (EMS) Flat Rate Envelope'    => 'EXPRESS',
+                'Express Mail International (EMS) Flat-Rate Envelope'    => 'EXPRESS',
                 'Priority Mail International'                            => 'PRIORITY',
-                'Priority Mail International Flat Rate Box'              => 'PRIORITY',
+                'Priority Mail International Flat-Rate Box'              => 'PRIORITY',
+                'Priority Mail International Large Flat-Rate Box'        => 'PRIORITY'
             ),
 
             'first_class_mail_type'=>array(
@@ -380,8 +397,8 @@ class Mage_Usa_Model_Shipping_Carrier_Usps
 
             'container'=>array(
                 'VARIABLE'           => Mage::helper('usa')->__('Variable'),
-                'FLAT RATE BOX'      => Mage::helper('usa')->__('Flat Rate Box'),
-                'FLAT RATE ENVELOPE' => Mage::helper('usa')->__('Flat Rate Envelope'),
+                'FLAT RATE BOX'      => Mage::helper('usa')->__('Flat-Rate Box'),
+                'FLAT RATE ENVELOPE' => Mage::helper('usa')->__('Flat-Rate Envelope'),
                 'RECTANGULAR'        => Mage::helper('usa')->__('Rectangular'),
                 'NONRECTANGULAR'     => Mage::helper('usa')->__('Non-rectangular'),
             ),

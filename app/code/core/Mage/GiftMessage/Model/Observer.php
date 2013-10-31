@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_GiftMessage
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -24,6 +30,7 @@
  *
  * @category   Mage
  * @package    Mage_GiftMessage
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_GiftMessage_Model_Observer extends Varien_Object
 {
@@ -93,17 +100,30 @@ class Mage_GiftMessage_Model_Observer extends Varien_Object
     public function checkoutEventCreateGiftMessage($observer)
     {
         $giftMessages = $observer->getEvent()->getRequest()->getParam('giftmessage');
+        $quote = $observer->getEvent()->getQuote();
+        /* @var $quote Mage_Sales_Model_Quote */
         if(is_array($giftMessages)) {
             foreach ($giftMessages as $entityId=>$message) {
 
                 $giftMessage = Mage::getModel('giftmessage/message');
-                $entity = $giftMessage->getEntityModelByType($message['type']);
 
-                if ($message['type']=='quote') {
-                    $entity->setStoreId(Mage::app()->getStore()->getId());
+                switch ($message['type']) {
+                    case 'quote':
+                        $entity = $quote;
+                        break;
+                    case 'quote_item':
+                        $entity = $quote->getItemById($entityId);
+                        break;
+                    case 'quote_address':
+                        $entity = $quote->getAddressById($entityId);
+                        break;
+                    case 'quote_address_item':
+                        $entity = $quote->getAddressById($message['address'])->getItemById($entityId);
+                        break;
+                    default:
+                        $entity = $quote;
+                        break;
                 }
-
-                $entity->load($entityId);
 
                 if($entity->getGiftMessageId()) {
                     $giftMessage->load($entity->getGiftMessageId());

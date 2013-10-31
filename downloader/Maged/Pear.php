@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Varien
  * @package    Varien_Object
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -27,7 +33,11 @@ if (!defined('DS')) {
 
 // add PEAR lib in include_path if needed
 $_includePath = get_include_path();
-$_pearPhpDir = dirname(dirname(__FILE__)) . DS . 'pearlib' . DS . 'php';
+$_pearDir = dirname(dirname(__FILE__)) . DS . 'pearlib';
+if (!getenv('PHP_PEAR_INSTALL_DIR')) {
+    putenv('PHP_PEAR_INSTALL_DIR=' . $_pearDir);
+}
+$_pearPhpDir = $_pearDir . DS . 'php';
 if (strpos($_includePath, $_pearPhpDir) === false) {
     if (substr($_includePath, 0, 2) === '.' . PATH_SEPARATOR) {
         $_includePath = '.' . PATH_SEPARATOR . $_pearPhpDir . PATH_SEPARATOR . substr($_includePath, 2);
@@ -47,6 +57,7 @@ require_once "PEAR/Exception.php";
 
 require_once "Maged/Pear/Frontend.php";
 require_once "Maged/Pear/Package.php";
+require_once "Maged/Pear/Registry.php";
 require_once "Maged/Model/Pear/Request.php";
 
 class Maged_Pear
@@ -114,7 +125,7 @@ class Maged_Pear
                 if (!(substr($key, 0, 5)==='mage_' && substr($key, -4)==='_dir')) {
                     continue;
                 }
-                $config->set($key, preg_replace('#^\.#', $this->getBaseDir(), $config->get($key)));
+                $config->set($key, preg_replace('#^\.#', addslashes($this->getBaseDir()), $config->get($key)));
                 //echo $key.' : '.$config->get($key).'<br>';
             }
 
@@ -145,7 +156,7 @@ class Maged_Pear
 //        return $this->getConfig()->getRegistry();
 
         if (!$this->_registry) {
-            $this->_registry = new PEAR_Registry($this->getPearDir().DS.'php');
+            $this->_registry = new Maged_Pear_Registry($this->getPearDir().DS.'php');
 
             $changed = false;
             foreach ($this->getMagentoChannels() as $channel=>$channelName) {
@@ -254,6 +265,8 @@ class Maged_Pear
         } else {
             throw Maged_Exception("Invalid run parameters");
         }
+
+        if (!$run->get('no-header')) {
 ?>
 <html><head><style type="text/css">
 body { margin:0px;
@@ -268,10 +281,20 @@ if (parent && parent.disableInputs) {
     parent.disableInputs(true);
 }
 if (typeof auto_scroll=='undefined') {
-    var auto_scroll = window.setInterval("if (top.$('pear_iframe_scroll').checked) document.body.scrollTop+=3", 10);
+    var auto_scroll = window.setInterval(console_scroll, 10);
+}
+function console_scroll()
+{
+    if (typeof top.$!='function') {
+        return;
+    }
+    if (top.$('pear_iframe_scroll').checked) {
+        document.body.scrollTop+=3;
+    }
 }
 </script>
 <?php
+        }
         echo htmlspecialchars($run->get('comment'));
 
         if ($command = $run->get('command')) {
@@ -290,11 +313,13 @@ if (typeof auto_scroll=='undefined') {
                     }
                 }
             } else {
-                if ($callback = $run->get('success_callback')) {
-                    if (is_array($callback)) {
-                        call_user_func_array($callback, array($result));
-                    } else {
-                        echo $callback;
+                if (!$run->get('no-footer')) {
+                    if ($callback = $run->get('success_callback')) {
+                        if (is_array($callback)) {
+                            call_user_func_array($callback, array($result));
+                        } else {
+                            echo $callback;
+                        }
                     }
                 }
             }
@@ -302,6 +327,7 @@ if (typeof auto_scroll=='undefined') {
         } else {
             $result = false;
         }
+        if ($result instanceof PEAR_Error || !$run->get('no-footer')) {
 ?>
 <script type="text/javascript">
 if (parent && parent.disableInputs) {
@@ -310,8 +336,8 @@ if (parent && parent.disableInputs) {
 </script>
 </body></html>
 <?php
-        $fe->setLogStream($oldLogStream);
-
+            $fe->setLogStream($oldLogStream);
+        }
         return $result;
     }
 }

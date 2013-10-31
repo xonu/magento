@@ -12,19 +12,30 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_CatalogInventory
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
 /**
  * Stock model
  *
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_CatalogInventory_Model_Stock extends Mage_Core_Model_Abstract
 {
     const BACKORDERS_NO     = 0;
+    const BACKORDERS_YES_NONOTIFY = 1;
+    const BACKORDERS_YES_NOTIFY   = 2;
+
+    /* deprecated */
     const BACKORDERS_BELOW  = 1;
     const BACKORDERS_YES    = 2;
 
@@ -58,7 +69,7 @@ class Mage_CatalogInventory_Model_Stock extends Mage_Core_Model_Abstract
             foreach($productCollection as $product){
                 if($product->getId()==$item->getProductId()){
                     if($product instanceof Mage_Catalog_Model_Product) {
-                    	$item->assignProduct($product);
+                        $item->assignProduct($product);
                     }
                 }
             }
@@ -87,12 +98,14 @@ class Mage_CatalogInventory_Model_Stock extends Mage_Core_Model_Abstract
     {
         if ($productId = $item->getProductId()) {
             $stockItem = Mage::getModel('cataloginventory/stock_item')->loadByProduct($productId);
-            if ($item->getStoreId()) {
-                $stockItem->setStoreId($item->getStoreId());
-            }
-            if ($stockItem->checkQty($item->getQtyOrdered())) {
-                $stockItem->subtractQty($item->getQtyOrdered())
-                          ->save();
+            if (Mage::helper('catalogInventory')->isQty($stockItem->getTypeId())) {
+                if ($item->getStoreId()) {
+                    $stockItem->setStoreId($item->getStoreId());
+                }
+                if ($stockItem->checkQty($item->getQtyOrdered()) || Mage::app()->getStore()->isAdmin()) {
+                    $stockItem->subtractQty($item->getQtyOrdered());
+                    $stockItem->save();
+                }
             }
         }
         else {
@@ -102,21 +115,22 @@ class Mage_CatalogInventory_Model_Stock extends Mage_Core_Model_Abstract
     }
 
     /**
-     * Back stock item data when we cancel order items
+     * Get back to stock (when order is canceled or whatever else)
      *
-     * @param Varien_Object $item
+     * @param int $productId
+     * @param numeric $qty
+     * @return Mage_CatalogInventory_Model_Stock
      */
-    public function cancelItemSale(Varien_Object $item)
+    public function backItemQty($productId, $qty)
     {
-        if (($productId = $item->getProductId()) && ($qty = $item->getQtyToShip())) {
-            $stockItem = Mage::getModel('cataloginventory/stock_item')->loadByProduct($productId);
-            if ($stockItem->getId()) {
-                if ($item->getStoreId()) {
-                    $stockItem->setStoreId($item->getStoreId());
-                }
-                $stockItem->addQty($qty)
-                    ->save();
+        $stockItem = Mage::getModel('cataloginventory/stock_item')->loadByProduct($productId);
+        if ($stockItem->getId() && Mage::helper('catalogInventory')->isQty($stockItem->getTypeId())) {
+            $stockItem->addQty($qty);
+            if ($stockItem->getCanBackInStock() && $stockItem->getQty() > $stockItem->getMinQty()) {
+                $stockItem->setIsInStock(true)
+                    ->setStockStatusChangedAutomaticallyFlag(true);
             }
+            $stockItem->save();
         }
         return $this;
     }
@@ -141,7 +155,7 @@ class Mage_CatalogInventory_Model_Stock extends Mage_Core_Model_Abstract
      */
     public function addInStockFilterToCollection($collection)
     {
-    	$this->getResource()->setInStockFilterToCollection($collection);
-    	return $this;
+        $this->getResource()->setInStockFilterToCollection($collection);
+        return $this;
     }
 }

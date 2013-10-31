@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Tag
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -23,6 +29,7 @@
  *
  * @category   Mage
  * @package    Mage_Tag
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 
 class Mage_Tag_CustomerController extends Mage_Core_Controller_Front_Action
@@ -49,11 +56,17 @@ class Mage_Tag_CustomerController extends Mage_Core_Controller_Front_Action
 
         $this->loadLayout();
         $this->_initLayoutMessages('tag/session');
+         $this->_initLayoutMessages('catalog/session');
 
         if ($navigationBlock = $this->getLayout()->getBlock('customer_account_navigation')) {
             $navigationBlock->setActive('tag/customer');
         }
 
+        if ($block = $this->getLayout()->getBlock('customer_tags')) {
+            $block->setRefererUrl($this->_getRefererUrl());
+        }
+
+        $this->getLayout()->getBlock('head')->setTitle(Mage::helper('tag')->__('My Tags'));
         $this->renderLayout();
     }
 
@@ -72,6 +85,8 @@ class Mage_Tag_CustomerController extends Mage_Core_Controller_Front_Action
                 $navigationBlock->setActive('tag/customer');
             }
 
+            $this->_initLayoutMessages('checkout/session');
+            $this->getLayout()->getBlock('head')->setTitle(Mage::helper('tag')->__('My Tags'));
             $this->renderLayout();
         }
         else {
@@ -112,11 +127,11 @@ class Mage_Tag_CustomerController extends Mage_Core_Controller_Front_Action
                 $model = Mage::registry('tagModel');
                 $model->deactivate();
                 $tag = Mage::getModel('tag/tag')->load($tagId)->aggregate();
-                Mage::getSingleton('tag/session')->addSuccess($this->__('You tag was successfully deleted'));
+                Mage::getSingleton('tag/session')->addSuccess(Mage::helper('tag')->__('Your tag was successfully deleted'));
                 $this->getResponse()->setRedirect(Mage::getUrl('*/*/'));
                 return;
             } catch (Exception $e) {
-                Mage::getSingleton('tag/session')->addError($this->__('Unable to remove tag. Please, try again later.'));
+                Mage::getSingleton('tag/session')->addError(Mage::helper('tag')->__('Unable to remove tag. Please, try again later.'));
             }
         }
         else {
@@ -133,10 +148,10 @@ class Mage_Tag_CustomerController extends Mage_Core_Controller_Front_Action
 
         $tagId      = (int) $this->getRequest()->getParam('tagId');
         $customerId = Mage::getSingleton('customer/session')->getCustomerId();
-        $tagName    = (string) $this->getRequest()->getPost('tagName');
+        $tagName    = (string) $this->getRequest()->getPost('productTagName');
 
         if (strlen($tagName) === 0) {
-            Mage::getSingleton('tag/session')->addError($this->__('Tag can\'t be empty.'));
+            Mage::getSingleton('tag/session')->addError(Mage::helper('tag')->__('Tag can\'t be empty.'));
             $this->_redirect('*/*/edit', array('tagId'=>$tagId));
             return;
         }
@@ -159,7 +174,7 @@ class Mage_Tag_CustomerController extends Mage_Core_Controller_Front_Action
                     }
                     else {
                         $isNew  = true;
-                        $message= $this->__('Thank you. Your tag has been accepted for moderation.');
+                        $message= Mage::helper('tag')->__('Thank you. Your tag has been accepted for moderation.');
                         $status = $tagModel->getPendingStatus();
                     }
 
@@ -195,13 +210,13 @@ class Mage_Tag_CustomerController extends Mage_Core_Controller_Front_Action
                     $tagModel->aggregate();
                     $this->getResponse()->setRedirect(Mage::getUrl('*/*/'));
                 }
-                $message = ($message) ? $message : $this->__('You tag was successfully saved');
+                $message = ($message) ? $message : Mage::helper('tag')->__('Your tag was successfully saved');
                 Mage::getSingleton('tag/session')->addSuccess($message);
                 $this->_redirect('*/*/');
                 return;
             } catch (Exception $e) {
                 Mage::getSingleton('tag/session')->addError(
-                    $this->__('Unable to save your tag. Please, try again later.')
+                    Mage::helper('tag')->__('Unable to save your tag. Please, try again later.')
                 );
             }
         }

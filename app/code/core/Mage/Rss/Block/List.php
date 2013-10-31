@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Rss
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -23,6 +29,7 @@
  *
  * @category   Mage
  * @package    Mage_Rss
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Rss_Block_List extends Mage_Core_Block_Template
 {
@@ -158,16 +165,25 @@ class Mage_Rss_Block_List extends Mage_Core_Block_Template
         $path = self::XML_PATH_RSS_METHODS.'/catalog/category';
         if((bool)Mage::getStoreConfig($path)){
             $category = Mage::getModel('catalog/category');
-            $currentRootCategory = $category->load(Mage::app()->getStore()->getRootCategoryId());
-             /* @var $collection Mage_Catalog_Model_Resource_Eav_Mysql4_Category_Collection */
+
+            /* @var $collection Mage_Catalog_Model_Resource_Eav_Mysql4_Category_Collection */
+            $treeModel = $category->getTreeModel()->loadNode(Mage::app()->getStore()->getRootCategoryId());
+            $nodes = $treeModel->loadChildren()->getChildren();
+
+            $nodeIds = array();
+            foreach ($nodes as $node) {
+                $nodeIds[] = $node->getId();
+            }
+
             $collection = $category->getCollection()
                 ->addAttributeToSelect('url_key')
                 ->addAttributeToSelect('name')
                 ->addAttributeToSelect('is_anchor')
                 ->addAttributeToFilter('is_active',1)
-                ->addIdFilter($currentRootCategory->getChildren())
+                ->addIdFilter($nodeIds)
                 ->addAttributeToSort('name')
                 ->load();
+
             foreach ($collection as $category) {
                 $this->addRssFeed('rss/catalog/category', $category->getName(),array('cid'=>$category->getId()));
             }

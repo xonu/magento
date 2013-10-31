@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Core
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -25,6 +31,7 @@
  *
  * @category    Mage
  * @package     Mage_Core
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 abstract class Mage_Core_Model_Mysql4_Abstract extends Mage_Core_Model_Resource_Abstract
 {
@@ -314,7 +321,7 @@ abstract class Mage_Core_Model_Mysql4_Abstract extends Mage_Core_Model_Resource_
      */
     protected function _getLoadSelect($field, $value, $object)
     {
-	   	$select = $this->_getReadAdapter()->select()
+           $select = $this->_getReadAdapter()->select()
             ->from($this->getMainTable())
             ->where($this->getMainTable().'.'.$field.'=?', $value);
         return $select;
@@ -372,6 +379,11 @@ abstract class Mage_Core_Model_Mysql4_Abstract extends Mage_Core_Model_Resource_
         }
     }
 
+    public function resetUniqueField()
+    {
+         $this->_uniqueFields = array();
+    }
+
     /**
      * Prepare data for save
      *
@@ -383,12 +395,37 @@ abstract class Mage_Core_Model_Mysql4_Abstract extends Mage_Core_Model_Resource_
         $data = array();
         $fields = $this->_getWriteAdapter()->describeTable($this->getMainTable());
         foreach (array_keys($fields) as $field) {
-            $fieldValue = $object->getData($field);
-        	if (!is_null($fieldValue)) {
-        	    $data[$field] = $fieldValue;
-        	}
+            if ($object->hasData($field)) {
+                $fieldValue = $object->getData($field);
+                if ($fieldValue instanceof Zend_Db_Expr) {
+                    $data[$field] = $fieldValue;
+                }
+                else {
+                    if (null !== $fieldValue) {
+                        $data[$field] = $this->_prepareValueForSave($fieldValue, $fields[$field]['DATA_TYPE']);
+                    }
+                    elseif (!empty($fields[$field]['NULLABLE'])) {
+                        $data[$field] = null;
+                    }
+                }
+            }
         }
         return $data;
+    }
+
+    /**
+     * Prepare value for save
+     *
+     * @param mixed $value
+     * @param string $type
+     * @return mixed
+     */
+    protected function _prepareValueForSave($value, $type)
+    {
+        if ($type == 'decimal') {
+            $value = Mage::app()->getLocale()->getNumber($value);
+        }
+        return $value;
     }
 
     /**
@@ -522,7 +559,7 @@ abstract class Mage_Core_Model_Mysql4_Abstract extends Mage_Core_Model_Resource_
         $data = $this->_getConnection('read')->fetchAll('checksum table '.$table);
         $checksum = 0;
         foreach ($data as $row) {
-        	$checksum+= $row[self::CHECKSUM_KEY_NAME];
+            $checksum+= $row[self::CHECKSUM_KEY_NAME];
         }
         return $checksum;
     }

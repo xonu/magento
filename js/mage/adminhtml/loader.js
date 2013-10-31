@@ -3,16 +3,22 @@
  *
  * NOTICE OF LICENSE
  *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
+ * This source file is subject to the Academic Free License (AFL 3.0)
+ * that is bundled with this package in the file LICENSE_AFL.txt.
  * It is also available through the world-wide-web at this URL:
- * http://opensource.org/licenses/osl-3.0.php
+ * http://opensource.org/licenses/afl-3.0.php
  * If you did not receive a copy of the license and are unable to
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
- * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @license    http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
  */
 
 var SessionError = Class.create();
@@ -26,44 +32,45 @@ SessionError.prototype = {
     }
 };
 
-
-Ajax.Request.prototype = Object.extend(Ajax.Request.prototype, {
-   initialize: function(url, options) {
+Ajax.Request = Object.extend(Ajax.Request, {
+  initialize: function($super, url, options) {
+    $super(options);
     this.transport = Ajax.getTransport();
-    this.setOptions(options);
     this.request((url.match(new RegExp('\\?',"g")) ? url + '&isAjax=1' : url + '?isAjax=1'));
   },
   respondToReadyState: function(readyState) {
-    var state = Ajax.Request.Events[readyState];
-    var transport = this.transport, json = this.evalJSON();
+    var state = Ajax.Request.Events[readyState], response = new Ajax.Response(this);
 
     if (state == 'Complete') {
       try {
         this._complete = true;
-        (this.options['on' + this.transport.status]
+        if (response.isJSON()) {
+           var _checkData  = response.evalJSON();
+           if(typeof _checkData == 'object' && _checkData.ajaxExpired && _checkData.ajaxRedirect) {
+               window.location.replace(_checkData.ajaxRedirect);
+               throw new SessionError('session expired');
+           }
+        }
+        (this.options['on' + response.status]
          || this.options['on' + (this.success() ? 'Success' : 'Failure')]
-         || Prototype.emptyFunction)(transport, json);
+         || Prototype.emptyFunction)(response, response.headerJSON);
       } catch (e) {
         this.dispatchException(e);
+        if (e instanceof SessionError) {
+            return;
+        }
       }
 
-      var contentType = this.getHeader('Content-type');
-      if (contentType && contentType.strip().
-        match(/^(text|application)\/(x-)?(java|ecma)script(;.*)?$/i))
-          this.evalResponse();
+      var contentType = response.getHeader('Content-type');
+      if (this.options.evalJS == 'force'
+          || (this.options.evalJS && this.isSameOrigin() && contentType
+          && contentType.match(/^\s*(text|application)\/(x-)?(java|ecma)script(;.*)?\s*$/i)))
+        this.evalResponse();
     }
 
     try {
-      if (state=='Complete' && transport.responseText.isJSON()) {
-           var _checkData  = transport.responseText.evalJSON();
-           if(typeof _checkData == 'object' && _checkData.ajaxExpired && _checkData.ajaxRedirect) {
-               window.location.href = _checkData.ajaxRedirect;
-               throw new SessionError('session expired');
-           }
-      }
-
-      (this.options['on' + state] || Prototype.emptyFunction)(transport, json);
-      Ajax.Responders.dispatch('on' + state, this, transport, json);
+      (this.options['on' + state] || Prototype.emptyFunction)(response, response.headerJSON);
+      Ajax.Responders.dispatch('on' + state, this, response, response.headerJSON);
     } catch (e) {
       this.dispatchException(e);
     }
@@ -75,23 +82,22 @@ Ajax.Request.prototype = Object.extend(Ajax.Request.prototype, {
   }
 });
 
-Ajax.Updater.prototype = Object.extend(Ajax.Updater.prototype, {
-    initialize: function(container, url, options) {
+Ajax.Updater.respondToReadyState = Ajax.Request.respondToReadyState;
+Ajax.Updater = Object.extend(Ajax.Updater, {
+  initialize: function($super, container, url, options) {
     this.container = {
       success: (container.success || container),
       failure: (container.failure || (container.success ? null : container))
-    }
+    };
 
-    this.transport = Ajax.getTransport();
-    this.setOptions(options);
-
-    var onComplete = this.options.onComplete || Prototype.emptyFunction;
-    this.options.onComplete = (function(transport, param) {
-      this.updateContent();
-      onComplete(transport, param);
+    options = Object.clone(options);
+    var onComplete = options.onComplete;
+    options.onComplete = (function(response, json) {
+      this.updateContent(response.responseText);
+      if (Object.isFunction(onComplete)) onComplete(response, json);
     }).bind(this);
 
-    this.request((url.match(new RegExp('\\?',"g")) ? url + '&isAjax=1' : url + '?isAjax=1'));
+    $super((url.match(new RegExp('\\?',"g")) ? url + '&isAjax=1' : url + '?isAjax=1'), options);
   }
 });
 
@@ -106,8 +112,8 @@ varienLoader.prototype = {
     },
 
     getCache : function(url){
-        if(this.cache[url]){
-            return this.cache[url]
+        if(this.cache.get(url)){
+            return this.cache.get(url)
         }
         return false;
     },
@@ -124,12 +130,21 @@ varienLoader.prototype = {
             }
         }
 
-        new Ajax.Request(url,{
-            method: 'post',
-            parameters: params || {},
-            onComplete: this.processResult.bind(this),
-            onFailure: this._processFailure.bind(this)
-        });
+        if (typeof(params.updaterId) != 'undefined') {
+            new Ajax.Updater(params.updaterId, url, {
+                evalScripts : true,
+                onComplete: this.processResult.bind(this),
+                onFailure: this._processFailure.bind(this)
+            });
+        }
+        else {
+            new Ajax.Request(url,{
+                method: 'post',
+                parameters: params || {},
+                onComplete: this.processResult.bind(this),
+                onFailure: this._processFailure.bind(this)
+            });
+        }
     },
 
     _processFailure : function(transport){
@@ -138,7 +153,7 @@ varienLoader.prototype = {
 
     processResult : function(transport){
         if(this.caching){
-            this.cache[this.url] = transport;
+            this.cache.set(this.url, transport);
         }
         if(this.callback){
             this.callback(transport.responseText);
@@ -158,7 +173,7 @@ varienLoaderHandler.handler = {
         request.options.loaderArea = $$('#html-body .wrapper')[0]; // Blocks all page
 
         if(request && request.options.loaderArea){
-            Position.clone($(request.options.loaderArea), $('loading-mask'), {offsetLeft:-2});
+            Element.clonePosition($('loading-mask'), $(request.options.loaderArea), {offsetLeft:-2})
             toggleSelectsUnderBlock($('loading-mask'), false);
             Element.show('loading-mask');
             setLoaderPosition();
@@ -212,12 +227,14 @@ function toggleSelectsUnderBlock(block, flag){
             if(flag){
                 if(selects[i].needShowOnSuccess){
                     selects[i].needShowOnSuccess = false;
-                    Element.show(selects[i])
+                    // Element.show(selects[i])
+                    selects[i].style.visibility = '';
                 }
             }
             else{
                 if(Element.visible(selects[i])){
-                    Element.hide(selects[i]);
+                    // Element.hide(selects[i]);
+                    selects[i].style.visibility = 'hidden';
                     selects[i].needShowOnSuccess = true;
                 }
             }

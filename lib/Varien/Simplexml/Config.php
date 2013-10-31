@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Varien
  * @package    Varien_Simplexml
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -24,6 +30,7 @@
  *
  * @category   Varien
  * @package    Varien_Simplexml
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Varien_Simplexml_Config
 {
@@ -532,42 +539,7 @@ class Varien_Simplexml_Config
      */
     public function setNode($path, $value, $overwrite=true)
     {
-        $arr1 = explode('/', $path);
-        $arr = array();
-        foreach ($arr1 as $v) {
-            if (!empty($v)) $arr[] = $v;
-        }
-        $last = sizeof($arr)-1;
-        $xml = $this->_xml;
-        foreach ($arr as $i=>$nodeName) {
-            if ($last===$i) {
-                /*
-                if (isset($xml->$nodeName)) {
-                    if ($overwrite) {
-                        unset($xml->$nodeName);
-                    } else {
-                        continue;
-                    }
-                }
-                $xml->addChild($nodeName, $xml->xmlentities($value));
-                */
-                if (!isset($xml->$nodeName) || $overwrite) {
-                    // http://bugs.php.net/bug.php?id=36795
-                    if (isset($xml->$nodeName)) {
-                        $xml->$nodeName = $xml->xmlentities($value);
-                    } else {
-                        $xml->$nodeName = $value;
-                    }
-                }
-            } else {
-                if (!isset($xml->$nodeName)) {
-                    $xml = $xml->addChild($nodeName);
-                } else {
-                    $xml = $xml->$nodeName;
-                }
-            }
-
-        }
+        $xml = $this->_xml->setNode($path, $value, $overwrite);
         return $this;
     }
 

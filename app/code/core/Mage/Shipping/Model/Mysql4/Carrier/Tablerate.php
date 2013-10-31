@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Shipping
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -23,6 +29,7 @@
  *
  * @category   Mage
  * @package    Mage_Shipping
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Shipping_Model_Mysql4_Carrier_Tablerate extends Mage_Core_Model_Mysql4_Abstract
 {
@@ -58,15 +65,31 @@ class Mage_Shipping_Model_Mysql4_Carrier_Tablerate extends Mage_Core_Model_Mysql
             $country = $read->quote($request->getDestCountryId());
         }
         */
-        $bind = array(
-            'zip'       => $read->quote($request->getDestPostcode()),
-            'region'    => $read->quote($request->getDestRegionId()),
-            'country'   => $read->quote($request->getDestCountryId())
+//        $bind = array(
+//            'zip'       => $read->quote($request->getDestPostcode()),
+//            'region'    => $read->quote($request->getDestRegionId()),
+//            'country'   => $read->quote($request->getDestCountryId())
+//        );
+        $select->where(
+            $read->quoteInto(" (dest_country_id=? ", $request->getDestCountryId()).
+                $read->quoteInto(" AND dest_region_id=? ", $request->getDestRegionId()).
+                $read->quoteInto(" AND dest_zip=?) ", $request->getDestPostcode()).
+
+            $read->quoteInto(" OR (dest_country_id=? ", $request->getDestCountryId()).
+                $read->quoteInto(" AND dest_region_id=? AND dest_zip='') ", $request->getDestRegionId()).
+
+            $read->quoteInto(" OR (dest_country_id=? AND dest_region_id='0' AND dest_zip='') ", $request->getDestCountryId()).
+
+            $read->quoteInto(" OR (dest_country_id=? AND dest_region_id='0' ", $request->getDestCountryId()).
+                $read->quoteInto("  AND dest_zip=?) ", $request->getDestPostcode()).
+
+            " OR (dest_country_id='0' AND dest_region_id='0' AND dest_zip='')"
         );
-        $select->where("(dest_zip=:zip)
-                     OR (dest_region_id=:region AND dest_zip='')
-                     OR (dest_country_id=:country AND dest_region_id='0' AND dest_zip='')
-                     OR (dest_country_id='0' AND dest_region_id='0' AND dest_zip='')");
+
+//        $select->where("(dest_zip=:zip)
+//                     OR (dest_region_id=:region AND dest_zip='')
+//                     OR (dest_country_id=:country AND dest_region_id='0' AND dest_zip='')
+//                     OR (dest_country_id='0' AND dest_region_id='0' AND dest_zip='')");
         if (is_array($request->getConditionName())) {
             $i = 0;
             foreach ($request->getConditionName() as $conditionName) {
@@ -83,10 +106,20 @@ class Mage_Shipping_Model_Mysql4_Carrier_Tablerate extends Mage_Core_Model_Mysql
             $select->where('condition_value<=?', $request->getData($request->getConditionName()));
         }
         $select->where('website_id=?', $request->getWebsiteId());
-        $select->order('condition_value DESC')->limit(1);
-        $row = $read->fetchRow($select, $bind);
+
+        $select->order('dest_country_id DESC');
+        $select->order('dest_region_id DESC');
+        $select->order('dest_zip DESC');
+        $select->order('condition_value DESC');
+        $select->limit(1);
+
+        /*
+        pdo has an issue. we cannot use bind
+        */
+        $row = $read->fetchRow($select);
         return $row;
     }
+
 
     public function uploadAndImport(Varien_Object $object)
     {
@@ -100,14 +133,23 @@ class Mage_Shipping_Model_Mysql4_Carrier_Tablerate extends Mage_Core_Model_Mysql
 
             $websiteId = $object->getScopeId();
             $websiteModel = Mage::app()->getWebsite($websiteId);
-            $conditionName = $object->getValue();
-            if ($conditionName{0} == '_') {
-                $conditionName = substr($conditionName, 1, strpos($conditionName, '/')-1);
-            } else {
-                $conditionName = $websiteModel->getConfig('carriers/tablerate/condition_name');
-            }
-            $conditionFullName = Mage::getModel('shipping/carrier_tablerate')->getCode('condition_name_short', $conditionName);
+            /*
+            getting condition name from post instead of the following commented logic
+            */
 
+            if (isset($_POST['groups']['tablerate']['fields']['condition_name']['inherit'])) {
+                $conditionName = (string)Mage::getConfig()->getNode('default/carriers/tablerate/condition_name');
+            } else {
+                $conditionName = $_POST['groups']['tablerate']['fields']['condition_name']['value'];
+            }
+
+//            $conditionName = $object->getValue();
+//            if ($conditionName{0} == '_') {
+//                $conditionName = Mage::helper('core/string')->substr($conditionName, 1, strpos($conditionName, '/')-1);
+//            } else {
+//                $conditionName = $websiteModel->getConfig('carriers/tablerate/condition_name');
+//            }
+            $conditionFullName = Mage::getModel('shipping/carrier_tablerate')->getCode('condition_name_short', $conditionName);
             if (!empty($csv)) {
                 $exceptions = array();
                 $csvLines = explode("\n", $csv);
@@ -133,16 +175,22 @@ class Mage_Shipping_Model_Mysql4_Carrier_Tablerate extends Mage_Core_Model_Mysql
                     $data = array();
                     $countryCodesToIds = array();
                     $regionCodesToIds = array();
+                    $countryCodesIso2 = array();
 
                     $countryCollection = Mage::getResourceModel('directory/country_collection')->addCountryCodeFilter($countryCodes)->load();
                     foreach ($countryCollection->getItems() as $country) {
                         $countryCodesToIds[$country->getData('iso3_code')] = $country->getData('country_id');
                         $countryCodesToIds[$country->getData('iso2_code')] = $country->getData('country_id');
+                        $countryCodesIso2[] = $country->getData('iso2_code');
                     }
 
-                    $regionCollection = Mage::getResourceModel('directory/region_collection')->addRegionCodeFilter($regionCodes)->load();
+                    $regionCollection = Mage::getResourceModel('directory/region_collection')
+                        ->addRegionCodeFilter($regionCodes)
+                        ->addCountryFilter($countryCodesIso2)
+                        ->load();
+
                     foreach ($regionCollection->getItems() as $region) {
-                        $regionCodesToIds[$region->getData('code')] = $region->getData('region_id');
+                        $regionCodesToIds[$countryCodesToIds[$region->getData('country_id')]][$region->getData('code')] = $region->getData('region_id');
                     }
 
                     foreach ($csvLines as $k=>$csvLine) {
@@ -157,13 +205,14 @@ class Mage_Shipping_Model_Mysql4_Carrier_Tablerate extends Mage_Core_Model_Mysql
                             $countryId = $countryCodesToIds[$csvLine[0]];
                         }
 
-                        if (empty($regionCodesToIds) || !array_key_exists($csvLine[1], $regionCodesToIds)) {
+                        if (empty($regionCodesToIds[$countryCodesToIds[$csvLine[0]]])
+                            || !array_key_exists($csvLine[1], $regionCodesToIds[$countryCodesToIds[$csvLine[0]]])) {
                             $regionId = '0';
                             if ($csvLine[1] != '*' && $csvLine[1] != '') {
                                 $exceptions[] = Mage::helper('shipping')->__('Invalid Region/State "%s" in the Row #%s', $csvLine[1], ($k+1));
                             }
                         } else {
-                            $regionId = $regionCodesToIds[$csvLine[1]];
+                            $regionId = $regionCodesToIds[$countryCodesToIds[$csvLine[0]]][$csvLine[1]];
                         }
 
                         if ($csvLine[2] == '*' || $csvLine[2] == '') {
@@ -205,6 +254,7 @@ class Mage_Shipping_Model_Mysql4_Carrier_Tablerate extends Mage_Core_Model_Mysql
                         }
                     }
                 }
+
                 if (!empty($exceptions)) {
                     throw new Exception( "\n" . implode("\n", $exceptions) );
                 }
@@ -212,7 +262,7 @@ class Mage_Shipping_Model_Mysql4_Carrier_Tablerate extends Mage_Core_Model_Mysql
         }
     }
 
-    private function _getCsvValues($string, $separator=",")
+    protected function _getCsvValues($string, $separator=",")
     {
         $elements = explode($separator, trim($string));
         for ($i = 0; $i < count($elements); $i++) {
@@ -238,7 +288,7 @@ class Mage_Shipping_Model_Mysql4_Carrier_Tablerate extends Mage_Core_Model_Mysql
         return $elements;
     }
 
-    private function _isPositiveDecimalNumber($n)
+    protected function _isPositiveDecimalNumber($n)
     {
         return preg_match ("/^[0-9]+(\.[0-9]*)?$/", $n);
     }

@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Catalog
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -24,6 +30,7 @@
  *
  * @category   Mage
  * @package    Mage_Catalog
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Catalog_Model_Resource_Eav_Mysql4_Product_Compare_Item extends Mage_Core_Model_Mysql4_Abstract
 {
@@ -62,4 +69,46 @@ class Mage_Catalog_Model_Resource_Eav_Mysql4_Product_Compare_Item extends Mage_C
         return true;
     }
 
+    public function getCount($customerId, $visitorId)
+    {
+        $select = $this->_getReadAdapter()->select()->from($this->getMainTable(), 'COUNT(*)')
+            ->where('visitor_id=?',  $visitorId);
+        if ($customerId) {
+            $select->where('customer_id=?', $customerId);
+        }
+        return $this->_getReadAdapter()->fetchOne($select);
+    }
+
+    /**
+     * Clean compare table
+     *
+     * @param Mage_Catalog_Model_Product_Compare_Item $object
+     * @return Mage_Catalog_Model_Resource_Eav_Mysql4_Product_Compare_Item
+     */
+    public function clean(Mage_Catalog_Model_Product_Compare_Item $object)
+    {
+        while (true) {
+            $select = $this->_getReadAdapter()->select()
+                ->from(array('compare_table' => $this->getMainTable()), array('catalog_compare_item_id'))
+                ->joinLeft(
+                    array('visitor_table' => $this->getTable('log/visitor')),
+                    'compare_table.visitor_id = visitor_table.visitor_id',
+                    array())
+                ->where('compare_table.visitor_id NOT IS NULL')
+                ->where('visitor_table.visitor_id IS NULL')
+                ->limit(1000);
+            $itemIds = $this->_getReadAdapter()->fetchCol($select);
+
+            if (!$itemIds) {
+                break;
+            }
+
+            $this->_getWriteAdapter()->delete(
+                $this->getMainTable(),
+                $this->_getWriteAdapter()->quoteInto('catalog_compare_item_id IN(?)', $eventIds)
+            );
+        }
+
+        return $this;
+    }
 }

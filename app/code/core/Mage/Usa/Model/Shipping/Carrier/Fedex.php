@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Usa
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -23,6 +29,7 @@
  *
  * @category   Mage
  * @package    Mage_Usa
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Usa_Model_Shipping_Carrier_Fedex
     extends Mage_Usa_Model_Shipping_Carrier_Abstract
@@ -116,6 +123,7 @@ class Mage_Usa_Model_Shipping_Carrier_Fedex
         }
 
         $r->setValue($request->getPackageValue());
+        $r->setValueWithDiscount($request->getPackageValueWithDiscount());
 
         $this->_rawRequest = $r;
 
@@ -143,7 +151,6 @@ class Mage_Usa_Model_Shipping_Carrier_Fedex
     protected function _getXmlQuotes()
     {
         $r = $this->_rawRequest;
-
         $xml = new SimpleXMLElement('<FDXRateAvailableServicesRequest/>');
 
         $xml->addAttribute('xmlns:api', 'http://www.fedex.com/fsmapi');
@@ -279,7 +286,8 @@ class Mage_Usa_Model_Shipping_Carrier_Fedex
 
         $declaredValue = $xml->addChild('DeclaredValue');
             $declaredValue->addChild('Value', $r->getValue());
-            $declaredValue->addChild('CurrencyCode', 'USD');
+//            $declaredValue->addChild('CurrencyCode', 'USD');
+            $declaredValue->addChild('CurrencyCode', $this->getCurrencyCode());
 
         if ($this->getConfigData('residence_delivery')) {
             $specialServices = $xml->addChild('SpecialServices');
@@ -532,6 +540,36 @@ class Mage_Usa_Model_Shipping_Carrier_Fedex
             return $codes[$type][$code];
         }
     }
+
+    /**
+     *  Return FeDex currency ISO code by Magento Base Currency Code
+     *
+     *  @param    none
+     *  @return	  string 3-digit currency code
+     */
+    public function getCurrencyCode ()
+    {
+        $codes = array(
+            'DOP' => 'RDD', // Dominican Peso
+            'XCD' => 'ECD', // Caribbean Dollars
+            'ARS' => 'ARN', // Argentina Peso
+            'SGD' => 'SID', // Singapore Dollars
+            'KRW' => 'WON', // South Korea Won
+            'JMD' => 'JAD', // Jamaican Dollars
+            'CHF' => 'SFR', // Swiss Francs
+            'JPY' => 'JYE', // Japanese Yen
+            'KWD' => 'KUD', // Kuwaiti Dinars
+            'GBP' => 'UKL', // British Pounds
+            'AED' => 'DHS', // UAE Dirhams
+            'MXN' => 'NMP', // Mexican Pesos
+            'UYU' => 'UYP', // Uruguay New Pesos
+            'CLP' => 'CHP', // Chilean Pesos
+            'TWD' => 'NTD', // New Taiwan Dollars
+        );
+        $currencyCode = Mage::app()->getBaseCurrencyCode();
+        return isset($codes[$currencyCode]) ? $codes[$currencyCode] : $currencyCode;
+    }
+
 
     public function getTracking($trackings)
     {

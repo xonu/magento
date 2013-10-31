@@ -5,18 +5,24 @@
  *
  * NOTICE OF LICENSE
  *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
+ * This source file is subject to the Academic Free License (AFL 3.0)
+ * that is bundled with this package in the file LICENSE_AFL.txt.
  * It is also available through the world-wide-web at this URL:
- * http://opensource.org/licenses/osl-3.0.php
+ * http://opensource.org/licenses/afl-3.0.php
  * If you did not receive a copy of the license and are unable to
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Payment
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
- * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @license    http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
  */
 -->
 <config>
@@ -57,22 +63,27 @@
                     <AE>
                         <code>AE</code>
                         <name>American Express</name>
+                        <order>0</order>
                     </AE>
                     <VI>
                         <code>VI</code>
                         <name>Visa</name>
+                        <order>10</order>
                     </VI>
                     <MC>
                         <code>MC</code>
                         <name>Master Card</name>
+                        <order>20</order>
                     </MC>
                     <DI>
                         <code>DI</code>
                         <name>Discover</name>
+                        <order>30</order>
                     </DI>
                     <OT>
                         <code>OT</code>
                         <name>Other</name>
+                        <order>1000</order>
                     </OT>
                 </types>
             </cc>

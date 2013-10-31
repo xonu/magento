@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Catalog
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -24,9 +30,11 @@
  *
  * @category   Mage
  * @package    Mage_Catalog
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Catalog_Model_Layer extends Varien_Object
 {
+    protected $_productCollections = array();
 
     /**
      * Retrieve current layer product collection
@@ -35,44 +43,30 @@ class Mage_Catalog_Model_Layer extends Varien_Object
      */
     public function getProductCollection()
     {
-        $collection = $this->getData('product_collection');
-        if (is_null($collection)) {
-            $collection = $this->getCurrentCategory()->getProductCollection()
-                ->addCategoryFilter($this->getCurrentCategory());
+        if (isset($this->_productCollections[$this->getCurrentCategory()->getId()])) {
+            $collection = $this->_productCollections[$this->getCurrentCategory()->getId()];
+        }
+        else {
+            $collection = $this->getCurrentCategory()->getProductCollection();
             $this->prepareProductCollection($collection);
-            $this->setData('product_collection', $collection);
+            $this->_productCollections[$this->getCurrentCategory()->getId()] = $collection;
         }
 
         return $collection;
     }
 
     /**
-     * Enter description here...
+     * Initialize product collection
      *
      * @param Mage_Catalog_Model_Resource_Eav_Mysql4_Product_Collection $collection
      * @return Mage_Catalog_Model_Layer
      */
     public function prepareProductCollection($collection)
     {
-        $collection->addAttributeToSelect('name')
-            ->addAttributeToSelect('url_key')
-
-            ->addAttributeToSelect('price')
-            ->addAttributeToSelect('special_price')
-            ->addAttributeToSelect('special_from_date')
-            ->addAttributeToSelect('special_to_date')
-            //->joinMinimalPrice()
+        $collection->addAttributeToSelect(Mage::getSingleton('catalog/config')->getProductAttributes())
             ->addMinimalPrice()
-
-            ->addAttributeToSelect('description')
-            ->addAttributeToSelect('short_description')
-
-            ->addAttributeToSelect('image')
-            ->addAttributeToSelect('thumbnail')
-            ->addAttributeToSelect('small_image')
-
-            ->addAttributeToSelect('tax_class_id')
-
+            ->addFinalPrice()
+            ->addTaxPercents()
             ->addStoreFilter();
 
         Mage::getSingleton('catalog/product_status')->addVisibleFilterToCollection($collection);
@@ -83,7 +77,21 @@ class Mage_Catalog_Model_Layer extends Varien_Object
     }
 
     /**
+     * Apply layer
+     * Method is colling after apply all filters, can be used
+     * for prepare some index data before getting information
+     * about existing intexes
+     *
+     * @return Mage_Catalog_Model_Layer
+     */
+    public function apply()
+    {
+        return $this;
+    }
+
+    /**
      * Retrieve current category model
+     * If no category found in registry, the root will be taken
      *
      * @return Mage_Catalog_Model_Category
      */
@@ -95,11 +103,36 @@ class Mage_Catalog_Model_Layer extends Varien_Object
                 $this->setData('current_category', $category);
             }
             else {
-                $category = false;
+                $category = Mage::getModel('catalog/category')->load($this->getCurrentStore()->getRootCategoryId());
                 $this->setData('current_category', $category);
             }
         }
         return $category;
+    }
+
+    /**
+     * Change current category object
+     *
+     * @param mixed $category
+     * @return Mage_Catalog_Model_Layer
+     */
+    public function setCurrentCategory($category)
+    {
+        if (is_numeric($category)) {
+            $category = Mage::getModel('catalog/category')->load($category);
+        }
+        if (!$category instanceof Mage_Catalog_Model_Category) {
+            Mage::throwException(Mage::helper('catalog')->__('Category must be instance of Mage_Catalog_Model_Category'));
+        }
+        if (!$category->getId()) {
+            Mage::throwException(Mage::helper('catalog')->__('Invalid category'));
+        }
+
+        if ($category->getId() != $this->getCurrentCategory()->getId()) {
+            $this->setData('current_category', $category);
+        }
+
+        return $this;
     }
 
     /**
@@ -134,6 +167,7 @@ class Mage_Catalog_Model_Layer extends Varien_Object
             ->addIsFilterableFilter()
             ->setOrder('position', 'ASC')
             ->load();
+
         foreach ($collection as $item) {
             Mage::getResourceSingleton('catalog/product')->getAttribute($item);
             $item->setEntity($entity);

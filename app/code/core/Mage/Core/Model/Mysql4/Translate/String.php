@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Core
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -23,6 +29,7 @@
  *
  * @category   Mage
  * @package    Mage_Core
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Core_Model_Mysql4_Translate_String extends Mage_Core_Model_Mysql4_Abstract
 {
@@ -34,10 +41,17 @@ class Mage_Core_Model_Mysql4_Translate_String extends Mage_Core_Model_Mysql4_Abs
     public function load(Mage_Core_Model_Abstract $object, $value, $field=null)
     {
         if (is_string($value)) {
-            $field = 'string';
+            $select = $this->_getReadAdapter()->select()
+                ->from($this->getMainTable())
+                ->where($this->getMainTable().'.string=:tr_string');
+            $result = $this->_getReadAdapter()->fetchRow($select, array('tr_string'=>$value));
+            $object->setData($result);
+            $this->_afterLoad($object);
+            return $result;
         }
-
-        return parent::load($object, $value, $field);
+        else {
+        	return parent::load($object, $value, $field);
+        }
     }
 
     protected function _getLoadSelect($field, $value, $object)
@@ -53,8 +67,8 @@ class Mage_Core_Model_Mysql4_Translate_String extends Mage_Core_Model_Mysql4_Abs
         $connection = $this->_getReadAdapter();
         $select = $connection->select()
             ->from($this->getMainTable(), array('store_id', 'translate'))
-            ->where('string=?', $object->getString());
-        $translations = $connection->fetchPairs($select);
+            ->where('string=:translate_string');
+        $translations = $connection->fetchPairs($select, array('translate_string' => $object->getString()));
         $object->setStoreTranslations($translations);
         return parent::_afterLoad($object);
     }
@@ -109,6 +123,38 @@ class Mage_Core_Model_Mysql4_Translate_String extends Mage_Core_Model_Mysql4_Abs
             }
         }
         return parent::_afterSave($object);
+    }
+
+    /**
+     * Delete translates
+     *
+     * @param string $string
+     * @param string $locale
+     * @param int|null $storeId
+     *
+     * @return Mage_Core_Model_Mysql4_Translate_String
+     */
+    public function deleteTranslate($string, $locale = null, $storeId = null)
+    {
+        if (is_null($locale)) {
+            $locale = Mage::app()->getLocale()->getLocaleCode();
+        }
+
+        $where = array(
+            $this->_getWriteAdapter()->quoteInto('locale=?', $locale),
+            $this->_getWriteAdapter()->quoteInto('string=?', $string),
+        );
+
+        if ($storeId === false) {
+            $where[] = $this->_getWriteAdapter()->quoteInto('store_id>?', 0);
+        }
+        elseif (!is_null($storeId)) {
+            $where[] = $this->_getWriteAdapter()->quoteInto('store_id=?', $storeId);
+        }
+
+        $this->_getWriteAdapter()->delete($this->getMainTable(), $where);
+
+        return $this;
     }
 
     public function saveTranslate($string, $translate, $locale=null, $storeId=null)

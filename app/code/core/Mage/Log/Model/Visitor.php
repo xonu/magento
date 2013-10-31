@@ -12,16 +12,24 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Log
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
 
 class Mage_Log_Model_Visitor extends Mage_Core_Model_Abstract
 {
-    const ONLINE_MINUTES_INTERVAL = 15;
+    const DEFAULT_ONLINE_MINUTES_INTERVAL = 15;
+    const VISITOR_TYPE_CUSTOMER = 'c';
+    const VISITOR_TYPE_VISITOR  = 'v';
 
     protected function _construct()
     {
@@ -73,6 +81,19 @@ class Mage_Log_Model_Visitor extends Mage_Core_Model_Abstract
     }
 
     /**
+     * Return Online Minutes Interval
+     *
+     * @return int Minutes Interval
+     */
+    public static function getOnlineMinutesInterval()
+    {
+        $configValue = Mage::getStoreConfig('customer/online_customers/online_minutes_interval');
+        return intval($configValue) > 0
+            ? intval($configValue)
+            : self::DEFAULT_ONLINE_MINUTES_INTERVAL;
+    }
+
+    /**
      * Retrieve url from model data
      *
      * @return string
@@ -105,7 +126,7 @@ class Mage_Log_Model_Visitor extends Mage_Core_Model_Abstract
         $ignores = Mage::getConfig()->getNode('global/ignoredModules/entities')->asArray();
 
         if( is_array($ignores) && $observer) {
-            $curModule = $observer->getEvent()->getControllerAction()->getRequest()->getModuleName();
+            $curModule = $observer->getEvent()->getControllerAction()->getRequest()->getRouteName();
             if (isset($ignores[$curModule])) {
                 return true;
             }

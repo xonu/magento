@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Adminhtml
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -24,6 +30,7 @@
  *
  * @category   Mage
  * @package    Mage_Adminhtml
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Adminhtml_Block_Catalog_Product_Attribute_Edit_Tab_Main extends Mage_Adminhtml_Block_Widget_Form
 {
@@ -38,7 +45,15 @@ class Mage_Adminhtml_Block_Catalog_Product_Attribute_Edit_Tab_Main extends Mage_
             'method' => 'post'
         ));
 
-
+        $disableAttributeFields = array(
+            'sku'       => array(
+                'is_global',
+                'is_unique',
+            ),
+            'url_key'   => array(
+                'is_unique',
+            ),
+        );
 
         $fieldset = $form->addFieldset('base_fieldset',
             array('legend'=>Mage::helper('catalog')->__('Attribute Properties'))
@@ -63,8 +78,8 @@ class Mage_Adminhtml_Block_Catalog_Product_Attribute_Edit_Tab_Main extends Mage_
 
         $fieldset->addField('attribute_code', 'text', array(
             'name'  => 'attribute_code',
-            'label' => Mage::helper('catalog')->__('Attribute Identifier'),
-            'title' => Mage::helper('catalog')->__('Attribute Identifier'),
+            'label' => Mage::helper('catalog')->__('Attribute Code'),
+            'title' => Mage::helper('catalog')->__('Attribute Code'),
             'note'  => Mage::helper('catalog')->__('For internal use. Must be unique with no spaces'),
             'class' => 'validate-code',
             'required' => true,
@@ -76,7 +91,7 @@ class Mage_Adminhtml_Block_Catalog_Product_Attribute_Edit_Tab_Main extends Mage_
             Mage_Catalog_Model_Resource_Eav_Attribute::SCOPE_GLOBAL =>Mage::helper('catalog')->__('Global'),
         );
 
-        if ($model->getAttributeCode() == 'status') {
+        if ($model->getAttributeCode() == 'status' || $model->getAttributeCode() == 'tax_class_id') {
             unset($scopes[Mage_Catalog_Model_Resource_Eav_Attribute::SCOPE_STORE]);
         }
 
@@ -148,12 +163,14 @@ class Mage_Adminhtml_Block_Catalog_Product_Attribute_Edit_Tab_Main extends Mage_
             'value' => $model->getDefaultValue(),
         ));
 
+        $dateFormatIso = Mage::app()->getLocale()->getDateFormat(Mage_Core_Model_Locale::FORMAT_TYPE_SHORT);
         $fieldset->addField('default_value_date', 'date', array(
-            'name'  => 'default_value_date',
-            'label' => Mage::helper('catalog')->__('Default value'),
-            'title' => Mage::helper('catalog')->__('Default value'),
-            'image' => $this->getSkinUrl('images/grid-cal.gif'),
-            'value' => $model->getDefaultValue(),
+            'name'   => 'default_value_date',
+            'label'  => Mage::helper('catalog')->__('Default value'),
+            'title'  => Mage::helper('catalog')->__('Default value'),
+            'image'  => $this->getSkinUrl('images/grid-cal.gif'),
+            'value'  => $model->getDefaultValue(),
+            'format'       => $dateFormatIso
         ));
 
         $fieldset->addField('default_value_textarea', 'textarea', array(
@@ -284,19 +301,25 @@ class Mage_Adminhtml_Block_Catalog_Product_Attribute_Edit_Tab_Main extends Mage_
             'class' => 'validate-digits',
         ));
 
-        if ($model->getIsUserDefined() || !$model->getId()) {
+//        if ($model->getIsUserDefined() || !$model->getId()) {
             $fieldset->addField('is_visible_on_front', 'select', array(
                 'name' => 'is_visible_on_front',
                 'label' => Mage::helper('catalog')->__('Visible on Catalog Pages on Front-end'),
                 'title' => Mage::helper('catalog')->__('Visible on Catalog Pages on Front-end'),
                 'values' => $yesno,
             ));
-        }
+//        }
 
 
         if ($model->getId()) {
             $form->getElement('attribute_code')->setDisabled(1);
             $form->getElement('frontend_input')->setDisabled(1);
+
+            if (isset($disableAttributeFields[$model->getAttributeCode()])) {
+                foreach ($disableAttributeFields[$model->getAttributeCode()] as $field) {
+                    $form->getElement($field)->setDisabled(1);
+                }
+            }
         }
         if (!$model->getIsUserDefined() && $model->getId()) {
             $form->getElement('is_unique')->setDisabled(1);

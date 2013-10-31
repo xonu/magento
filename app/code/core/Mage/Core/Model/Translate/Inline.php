@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Core
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -24,6 +30,7 @@
  *
  * @category   Mage
  * @package    Mage_Core
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Core_Model_Translate_Inline
 {
@@ -43,7 +50,11 @@ class Mage_Core_Model_Translate_Inline
 
             $this->_isAllowed = $active && Mage::helper('core')->isDevAllowed($storeId);
         }
-        return $this->_isAllowed;
+
+        $translate = Mage::getSingleton('core/translate');
+        /* @var $translate Mage_Core_Model_Translate */
+
+        return $translate->getTranslateInline() && $this->_isAllowed;
     }
 
     public function processAjaxPost($translate)
@@ -53,9 +64,35 @@ class Mage_Core_Model_Translate_Inline
         }
 
         $resource = Mage::getResourceModel('core/translate_string');
+        /* @var $resource Mage_Core_Model_Mysql4_Translate_String */
         foreach ($translate as $t) {
-            $resource->saveTranslate($t['original'], $t['custom']);
+            if (Mage::getDesign()->getArea() == 'adminhtml') {
+                $storeId = 0;
+            }
+            elseif (empty($t['perstore'])) {
+                $resource->deleteTranslate($t['original'], null, false);
+                $storeId = 0;
+            }
+            else {
+                $storeId = Mage::app()->getStore()->getId();
+            }
+
+            $resource->saveTranslate($t['original'], $t['custom'], null, $storeId);
         }
+    }
+
+    public function stripInlineTranslations(&$body)
+    {
+        if (is_array($body)) {
+            foreach ($body as $i=>&$part) {
+                if (strpos($part,'{{{')!==false) {
+                    $part = preg_replace('#'.$this->_tokenRegex.'#', '$1', $part);
+                }
+            }
+        } elseif (is_string($body)) {
+            $body = preg_replace('#'.$this->_tokenRegex.'#', '$1', $body);
+        }
+        return $this;
     }
 
     public function processResponseBody(&$bodyArray)
@@ -63,11 +100,7 @@ class Mage_Core_Model_Translate_Inline
         if (!$this->isAllowed()) {
             // TODO: move translations from exceptions and errors to output
             if (Mage::getDesign()->getArea()==='adminhtml') {
-                foreach ($bodyArray as $i=>&$body) {
-                    if (strpos($body,'{{{')!==false) {
-                        $body = preg_replace('#'.$this->_tokenRegex.'#', '$1', $body);
-                    }
-                }
+                $this->stripInlineTranslations($bodyArray);
             }
             return;
         }

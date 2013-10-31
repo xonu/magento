@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Page
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -23,6 +29,7 @@
  *
  * @category   Mage
  * @package    Mage_Page
+ * @author      Magento Core Team <core@magentocommerce.com>
  *
  * @todo        separate order, mode and pager
  */
@@ -36,9 +43,9 @@ class Mage_Page_Block_Html_Pager extends Mage_Core_Block_Template
     protected $_displayPages    = 5;
     protected $_showPerPage		= true;
 
-    public function __construct()
+    protected function _construct()
     {
-        parent::__construct();
+        parent::_construct();
         $this->setTemplate('page/html/pager.phtml');
     }
 
@@ -238,8 +245,12 @@ class Mage_Page_Block_Html_Pager extends Mage_Core_Block_Template
 
     public function getPagerUrl($params=array())
     {
-        $params['_current'] = true;
-        return $this->getUrl('*/*/*', $params);
+        $urlParams = array();
+        $urlParams['_current']  = true;
+        $urlParams['_escape']   = true;
+        $urlParams['_use_rewrite']   = true;
+        $urlParams['_query']    = $params;
+        return $this->getUrl('*/*/*', $urlParams);
     }
 }
 

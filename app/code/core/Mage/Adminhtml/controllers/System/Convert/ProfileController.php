@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Adminhtml
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -23,6 +29,7 @@
  *
  * @category   Mage
  * @package    Mage_Adminhtml
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Adminhtml_System_Convert_ProfileController extends Mage_Adminhtml_Controller_Action
 {
@@ -72,8 +79,8 @@ class Mage_Adminhtml_System_Convert_ProfileController extends Mage_Adminhtml_Con
         /**
          * Add breadcrumb item
          */
-        $this->_addBreadcrumb(Mage::helper('adminhtml')->__('Import/Export Profiles'), Mage::helper('adminhtml')->__('Import/Export Advanced Profiles'));
-        $this->_addBreadcrumb(Mage::helper('adminhtml')->__('Manage Profiles'), Mage::helper('adminhtml')->__('Manage Profiles'));
+        $this->_addBreadcrumb(Mage::helper('adminhtml')->__('Import/Export'), Mage::helper('adminhtml')->__('Import/Export Advanced'));
+        $this->_addBreadcrumb(Mage::helper('adminhtml')->__('Advanced Profiles'), Mage::helper('adminhtml')->__('Advanced Profiles'));
 
         $this->renderLayout();
     }
@@ -168,10 +175,14 @@ class Mage_Adminhtml_System_Convert_ProfileController extends Mage_Adminhtml_Con
                 $this->getResponse()->setRedirect($this->getUrl('*/*/edit', array('id'=>$profile->getId())));
                 return;
             }
+            if ($this->getRequest()->getParam('continue')) {
+                $this->_redirect('*/*/edit', array('id'=>$profile->getId()));
+            } else {
+                $this->_redirect('*/*');
+            }
         }
-        if ($this->getRequest()->getParam('continue')) {
-            $this->_redirect('*/*/edit', array('id'=>$profile->getId()));
-        } else {
+        else {
+            Mage::getSingleton('adminhtml/session')->addError($this->__('Invalid POST data (please check post_max_size and upload_max_filesize settings in you php.ini file)'));
             $this->_redirect('*/*');
         }
     }
@@ -218,6 +229,7 @@ class Mage_Adminhtml_System_Convert_ProfileController extends Mage_Adminhtml_Con
             $importIds = $batchImportModel->getIdCollection();
 
             $adapter = Mage::getModel($batchModel->getAdapter());
+            $adapter->setBatchParams($batchModel->getParams());
 
             $errors = array();
             $saved  = 0;
@@ -255,7 +267,17 @@ class Mage_Adminhtml_System_Convert_ProfileController extends Mage_Adminhtml_Con
             /* @var $batchModel Mage_Dataflow_Model_Batch */
 
             if ($batchModel->getId()) {
+                try {
+                    $batchModel->beforeFinish();
+                }
+                catch (Mage_Core_Exception $e) {
+                    $result['error'] = $e->getMessage();
+                }
+                catch (Exception $e) {
+                    $result['error'] = Mage::helper('adminhtml')->__('Error while finished process. Please refresh cache');
+                }
                 $batchModel->delete();
+                $this->getResponse()->setBody(Zend_Json::encode($result));
             }
         }
     }

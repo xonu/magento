@@ -3,16 +3,22 @@
  *
  * NOTICE OF LICENSE
  *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
+ * This source file is subject to the Academic Free License (AFL 3.0)
+ * that is bundled with this package in the file LICENSE_AFL.txt.
  * It is also available through the world-wide-web at this URL:
- * http://opensource.org/licenses/osl-3.0.php
+ * http://opensource.org/licenses/afl-3.0.php
  * If you did not receive a copy of the license and are unable to
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
- * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @license    http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
  */
 var varienGrid = new Class.create();
 
@@ -31,6 +37,7 @@ varienGrid.prototype = {
         this.preInitCallback = false;
         this.initCallback = false;
         this.initRowCallback = false;
+        this.doFilterCallback = false;
 
         this.reloadParams = false;
 
@@ -52,9 +59,6 @@ varienGrid.prototype = {
             for (var row=0; row<this.rows.length; row++) {
                 if(row%2==0){
                     Element.addClassName(this.rows[row], 'even');
-                }
-                if(this.rows[row].tagName) {
-                    Element.addClassName(this.rows[row], 'pointer');
                 }
 
                 Event.observe(this.rows[row],'mouseover',this.trOnMouseOver);
@@ -99,6 +103,13 @@ varienGrid.prototype = {
     rowMouseOver : function(event){
         var element = Event.findElement(event, 'tr');
         Element.addClassName(element, 'on-mouse');
+
+        if (!Element.hasClassName('pointer')
+            && (this.rowClickCallback !== openGridRow || element.title)) {
+            if (element.title) {
+                Element.addClassName(element, 'pointer');
+            }
+        }
     },
     rowMouseOut : function(event){
         var element = Event.findElement(event, 'tr');
@@ -122,9 +133,9 @@ varienGrid.prototype = {
     doSort : function(event){
         var element = Event.findElement(event, 'a');
 
-        if(element.name && element.target){
+        if(element.name && element.title){
             this.addVarToUrl(this.sortVar, element.name);
-            this.addVarToUrl(this.dirVar, element.target);
+            this.addVarToUrl(this.dirVar, element.title);
             this.reload(this.url);
         }
         Event.stop(event);
@@ -160,6 +171,22 @@ varienGrid.prototype = {
             location.href = url;
         }
     },
+    /*_processComplete : function(transport){
+        console.log(transport);
+        if (transport && transport.responseText){
+            try{
+                response = eval('(' + transport.responseText + ')');
+            }
+            catch (e) {
+                response = {};
+            }
+        }
+        if (response.ajaxExpired && response.ajaxRedirect) {
+            location.href = response.ajaxRedirect;
+            return false;
+        }
+        this.initGrid();
+    },*/
     _processFailure : function(transport){
         location.href = BASE_URL;
     },
@@ -181,7 +208,7 @@ varienGrid.prototype = {
     },
     bindFilterFields : function(){
         var filters = $$('#'+this.containerId+' .filter input', '#'+this.containerId+' .filter select');
-        for (var i in filters){
+        for (var i=0; i<filters.length; i++) {
             Event.observe(filters[i],'keypress',this.filterKeyPress.bind(this));
         }
     },
@@ -189,7 +216,8 @@ varienGrid.prototype = {
         if (!$(this.containerId)) {
             return;
         }
-        var dataElements = $(this.containerId+this.tableSufix).down('.data tbody').getElementsBySelector('input', 'select');
+//        var dataElements = $(this.containerId+this.tableSufix).down('.data tbody').select('input', 'select');
+        var dataElements = $(this.containerId+this.tableSufix).down('tbody').select('input', 'select');
         for(var i=0; i<dataElements.length;i++){
             Event.observe(dataElements[i], 'change', dataElements[i].setHasChanges.bind(dataElements[i]));
         }
@@ -205,13 +233,15 @@ varienGrid.prototype = {
         for(var i in filters){
             if(filters[i].value && filters[i].value.length) elements.push(filters[i]);
         }
-        this.reload(this.addVarToUrl(this.filterVar, encode_base64(Form.serializeElements(elements))));
+        if (!this.doFilterCallback || (this.doFilterCallback && this.doFilterCallback())) {
+            this.reload(this.addVarToUrl(this.filterVar, encode_base64(Form.serializeElements(elements))));
+        }
     },
     resetFilter : function(){
         this.reload(this.addVarToUrl(this.filterVar, ''));
     },
     checkCheckboxes : function(element){
-        elements = Element.getElementsBySelector($(this.containerId), 'input[name="'+element.name+'"]');
+        elements = Element.select($(this.containerId), 'input[name="'+element.name+'"]');
         for(var i=0; i<elements.length;i++){
             this.setCheckboxChecked(elements[i], element.checked);
         }
@@ -247,8 +277,8 @@ function openGridRow(grid, event){
         return;
     }
 
-    if(element.id){
-        setLocation(element.id);
+    if(element.title){
+        setLocation(element.title);
     }
 }
 
@@ -256,65 +286,53 @@ var varienGridMassaction = Class.create();
 varienGridMassaction.prototype = {
     /* Predefined vars */
     checkedValues: $H({}),
+    checkedString: '',
     oldCallbacks: {},
     items: {},
     gridIds: [],
     currentItem: false,
     fieldTemplate: new Template('<input type="hidden" name="#{name}" value="#{value}" />'),
     initialize: function (containerId, grid, checkedValues, formFieldNameInternal, formFieldName) {
-       this.setOldCallback('row_click', grid.rowClickCallback);
-       this.setOldCallback('init',      grid.initCallback);
-       this.setOldCallback('init_row',  grid.initRowCallback);
-       this.setOldCallback('pre_init',  grid.preInitCallback);
+        this.setOldCallback('row_click', grid.rowClickCallback);
+        this.setOldCallback('init',      grid.initCallback);
+        this.setOldCallback('init_row',  grid.initRowCallback);
+        this.setOldCallback('pre_init',  grid.preInitCallback);
 
-       this.useAjax   = false;
-       this.grid      = grid;
-       this.containerId = containerId;
-       this.initMassactionElements();
+        this.useAjax        = false;
+        this.grid           = grid;
+        this.containerId    = containerId;
+        this.initMassactionElements();
 
-       checkedValues.each(function(item){
-           this.checkedValues[item] = item;
-       }.bind(this));
+        this.checkedString          = checkedValues;
+        this.formFieldName          = formFieldName;
+        this.formFieldNameInternal  = formFieldNameInternal;
 
-       this.formFieldName = formFieldName;
-       this.formFieldNameInternal = formFieldNameInternal;
-
-       this.grid.initCallback = this.onGridInit.bind(this);
-       this.grid.preInitCallback = this.onGridPreInit.bind(this);
-       this.grid.initRowCallback = this.onGridRowInit.bind(this);
-       this.grid.rowClickCallback = this.onGridRowClick.bind(this);
-       this.initCheckboxes();
-       this.checkCheckboxes();
+        this.grid.initCallback      = this.onGridInit.bind(this);
+        this.grid.preInitCallback   = this.onGridPreInit.bind(this);
+        this.grid.initRowCallback   = this.onGridRowInit.bind(this);
+        this.grid.rowClickCallback  = this.onGridRowClick.bind(this);
+        this.initCheckboxes();
+        this.checkCheckboxes();
     },
     setUseAjax: function(flag) {
-       this.useAjax = flag;
+        this.useAjax = flag;
     },
     initMassactionElements: function() {
-       this.container = $(this.containerId);
-       this.form      = $(this.containerId + '-form');
-       this.count      = $(this.containerId + '-count');
-       this.validator = new Validation(this.form);
-       this.formHiddens    = $(this.containerId + '-form-hiddens');
-       this.formAdditional = $(this.containerId + '-form-additional');
-       this.select    = $(this.containerId + '-select');
-       this.select.observe('change', this.onSelectChange.bindAsEventListener(this));
+        this.container      = $(this.containerId);
+        this.form           = $(this.containerId + '-form');
+        this.count          = $(this.containerId + '-count');
+        this.validator      = new Validation(this.form);
+        this.formHiddens    = $(this.containerId + '-form-hiddens');
+        this.formAdditional = $(this.containerId + '-form-additional');
+        this.select         = $(this.containerId + '-select');
+        this.select.observe('change', this.onSelectChange.bindAsEventListener(this));
     },
     setGridIds: function(gridIds) {
         this.gridIds = gridIds;
         this.updateCount();
     },
-    getGridIds: function(gridIds) {
+    getGridIds: function() {
         return this.gridIds;
-    },
-    getOnlyExistsCheckedValues: function()
-    {
-        var result = [];
-        this.checkedValues.each(function(pair){
-            if(this.getGridIds().indexOf(pair.key)!=-1) {
-                result.push(pair.value);
-            }
-        }.bind(this));
-        return result;
     },
     setItems: function(items) {
         this.items = items;
@@ -356,8 +374,8 @@ varienGridMassaction.prototype = {
                 return;
             }
             var trElement = Event.findElement(evt, 'tr');
-            if (trElement.id) {
-                setLocation(trElement.id);
+            if (trElement.title) {
+                setLocation(trElement.title);
             }
             return;
         }
@@ -384,7 +402,7 @@ varienGridMassaction.prototype = {
             return false;
         }
         checkbox = false;
-        Event.findElement(evt, 'tr').getElementsBySelector('.massaction-checkbox').each(function(element){
+        Event.findElement(evt, 'tr').select('.massaction-checkbox').each(function(element){
             if(element.isMassactionCheckbox) {
                 checkbox = element;
             }
@@ -398,7 +416,7 @@ varienGridMassaction.prototype = {
     },
     checkCheckboxes: function() {
         this.getCheckboxes().each(function(checkbox) {
-            checkbox.checked = this.checkedValues.keys().indexOf(checkbox.value)!==-1;
+            checkbox.checked = varienStringArray.has(checkbox.value, this.checkedString);
         }.bind(this));
     },
     selectAll: function() {
@@ -408,46 +426,35 @@ varienGridMassaction.prototype = {
         return false;
     },
     unselectAll: function() {
-        this.setCheckedValues([]);
+        this.setCheckedValues('');
         this.checkCheckboxes();
         this.updateCount();
         return false;
     },
     selectVisible: function() {
-        this.addCheckedValues(this.getCheckboxesValues());
+        this.setCheckedValues(this.getCheckboxesValuesAsString());
         this.checkCheckboxes();
         this.updateCount();
         return false;
     },
     unselectVisible: function() {
-        this.unsetCheckedValues(this.getCheckboxesValues());
+        this.getCheckboxesValues().each(function(key){
+            this.checkedString = varienStringArray.remove(key, this.checkedString);
+        }.bind(this));
         this.checkCheckboxes();
         this.updateCount();
         return false;
     },
     setCheckedValues: function(values) {
-        this.checkedValues.remove.apply(this.checkedValues, this.checkedValues.keys());
-        values.each(function(item){
-            this.checkedValues[item] = item;
-        }.bind(this));
-    },
-    addCheckedValues: function(values) {
-        values.each(function(item){
-            this.checkedValues[item] = item;
-        }.bind(this));
-    },
-    unsetCheckedValues: function(values) {
-        if(values.size()) {
-            this.checkedValues.remove.apply(this.checkedValues, values);
-        }
+        this.checkedString = values;
     },
     getCheckedValues: function() {
-        return this.checkedValues.keys();
+        return this.checkedString;
     },
     getCheckboxes: function() {
         var result = [];
         this.grid.rows.each(function(row){
-            var checkboxes = row.getElementsBySelector('.massaction-checkbox');
+            var checkboxes = row.select('.massaction-checkbox');
             checkboxes.each(function(checkbox){
                 result.push(checkbox);
             });
@@ -461,21 +468,24 @@ varienGridMassaction.prototype = {
         }.bind(this));
         return result;
     },
+    getCheckboxesValuesAsString: function()
+    {
+        return this.getCheckboxesValues().join(',');
+    },
     setCheckbox: function(checkbox) {
         if(checkbox.checked) {
-            this.checkedValues[checkbox.value] = checkbox.value;
+            this.checkedString = varienStringArray.add(checkbox.value, this.checkedString);
         } else {
-            this.checkedValues.remove(checkbox.value);
+            this.checkedString = varienStringArray.remove(checkbox.value, this.checkedString);
         }
         this.updateCount();
     },
     updateCount: function() {
-        // Maybe in future this.count.update(this.getOnlyExistsCheckedValues().size());
-        this.count.update(this.getCheckedValues().size());
+        this.count.update(varienStringArray.count(this.checkedString));
         if(!this.grid.reloadParams) {
             this.grid.reloadParams = {};
         }
-        this.grid.reloadParams[this.formFieldNameInternal] = this.getCheckedValues().join(',');
+        this.grid.reloadParams[this.formFieldNameInternal] = this.checkedString;
     },
     getSelectedItem: function() {
         if(this.getItem(this.select.value)) {
@@ -491,23 +501,16 @@ varienGridMassaction.prototype = {
             return;
         }
         this.currentItem = item;
-        var fieldName = (item.field ? item.field : this.formFieldName) + '[]';
+        var fieldName = (item.field ? item.field : this.formFieldName);
         var fieldsHtml = '';
 
         if(this.currentItem.confirm && !window.confirm(this.currentItem.confirm)) {
             return;
         }
 
-        /* Maybe in future
-        this.getOnlyExistsCheckedValues().each(function(item){
-            fieldsHtml += this.fieldTemplate.evaluate({name: fieldName, value: item});
-        }.bind(this)); */
-
-        this.getCheckedValues().each(function(item){
-            fieldsHtml += this.fieldTemplate.evaluate({name: fieldName, value: item});
-        }.bind(this));
-
-        this.formHiddens.update(fieldsHtml);
+        this.formHiddens.update('');
+        new Insertion.Bottom(this.formHiddens, this.fieldTemplate.evaluate({name: fieldName, value: this.checkedString}));
+        new Insertion.Bottom(this.formHiddens, this.fieldTemplate.evaluate({name: 'massaction_prepare_key', value: fieldName}));
 
         if(!this.validator.validate()) {
             return;
@@ -525,17 +528,17 @@ varienGridMassaction.prototype = {
         }
     },
     onMassactionComplete: function(transport) {
-           if(this.currentItem.complete) {
-               try {
-                  var listener = this.getListener(this.currentItem.complete) || Prototype.emptyFunction;
-                  listener(grid, this, transport);
-               } catch (e) {}
-           }
+        if(this.currentItem.complete) {
+            try {
+                var listener = this.getListener(this.currentItem.complete) || Prototype.emptyFunction;
+                listener(grid, this, transport);
+            } catch (e) {}
+       }
     },
     getListener: function(strValue) {
         return eval(strValue);
     }
-}
+};
 
 var varienGridAction = {
     execute: function(select) {
@@ -556,5 +559,53 @@ var varienGridAction = {
         } else {
             setLocation(config.href);
         }
+    }
+};
+
+var varienStringArray = {
+    remove: function(str, haystack)
+    {
+        haystack = ',' + haystack + ',';
+        haystack = haystack.replace(new RegExp(',' + str + ',', 'g'), ',');
+        return this.trimComma(haystack);
+    },
+    add: function(str, haystack)
+    {
+        haystack = ',' + haystack + ',';
+        if (haystack.search(new RegExp(',' + str + ',', 'g'), haystack) === -1) {
+            haystack += str + ',';
+        }
+        return this.trimComma(haystack);
+    },
+    has: function(str, haystack)
+    {
+        haystack = ',' + haystack + ',';
+        if (haystack.search(new RegExp(',' + str + ',', 'g'), haystack) === -1) {
+            return false;
+        }
+        return true;
+    },
+    count: function(haystack)
+    {
+        if (typeof haystack != 'string') {
+            return 0;
+        }
+        if (match = haystack.match(new RegExp(',', 'g'))) {
+            return match.length + 1;
+        }
+        return 0;
+    },
+    each: function(haystack, fnc)
+    {
+        var haystack = haystack.split(',');
+        for (var i=0; i<haystack.length; i++) {
+            fnc(haystack[i]);
+        }
+    },
+    trimComma: function(string)
+    {
+        string = string.replace(new RegExp('^(,+)','i'), '');
+        string = string.replace(new RegExp('(,+)$','i'), '');
+        return string;
     }
 };

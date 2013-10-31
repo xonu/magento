@@ -12,12 +12,18 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Install
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
-set_time_limit(120);
+@set_time_limit(120);
 /**
  * Installation wizard controller
  */
@@ -151,8 +157,12 @@ class Mage_Install_WizardController extends Mage_Install_Controller_Action
         $this->_checkIfInstalled();
 
         $locale = $this->getRequest()->getParam('locale');
+        $timezone = $this->getRequest()->getParam('timezone');
+        $currency = $this->getRequest()->getParam('currency');
         if ($locale) {
             Mage::getSingleton('install/session')->setLocale($locale);
+            Mage::getSingleton('install/session')->setTimezone($timezone);
+            Mage::getSingleton('install/session')->setCurrency($currency);
         }
 
         $this->_redirect('*/*/locale');
@@ -223,9 +233,9 @@ class Mage_Install_WizardController extends Mage_Install_Controller_Action
         if ($this->getRequest()->getParam('do')) {
             if ($state = $this->getRequest()->getParam('state', 'beta')) {
                 $result = $pear->runHtmlConsole(array(
-                'comment'=>Mage::helper('install')->__("Setting preferred state to: %s", $state)."\r\n\r\n",
-                'command'=>'config-set',
-                'params'=>array('preferred_state', $state)
+                'comment'   => Mage::helper('install')->__("Setting preferred state to: %s", $state)."\r\n\r\n",
+                'command'   => 'config-set',
+                'params'    => array('preferred_state', $state)
                 ));
                 if ($result instanceof PEAR_Error) {
                     $this->installFailureCallback();
@@ -298,7 +308,8 @@ class Mage_Install_WizardController extends Mage_Install_Controller_Action
 
             Mage::getSingleton('install/session')
                 ->setConfigData($data)
-                ->setSkipUrlValidation($this->getRequest()->getPost('skip_url_validation'));
+                ->setSkipUrlValidation($this->getRequest()->getPost('skip_url_validation'))
+                ->setSkipBaseUrlValidation($this->getRequest()->getPost('skip_base_url_validation'));
             try {
                 if($data['db_prefix']!='') {
                     if(!preg_match('/^[a-z]+[a-z0-9_]*$/',$data['db_prefix'])) {
@@ -331,7 +342,10 @@ class Mage_Install_WizardController extends Mage_Install_Controller_Action
              * Clear session config data
              */
             Mage::getSingleton('install/session')->getConfigData(true);
-            $this->getResponse()->setRedirect($step->getNextUrl());
+
+            Mage::app()->getStore()->resetConfig();
+
+            $this->getResponse()->setRedirect(Mage::getUrl($step->getNextUrlPath()));
         }
         catch (Exception $e){
             Mage::getSingleton('install/session')->addError($e->getMessage());

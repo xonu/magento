@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Catalog
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -23,9 +29,18 @@
  *
  * @category   Mage
  * @package    Mage_Catalog
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Catalog_Helper_Category extends Mage_Core_Helper_Abstract
 {
+    const XML_PATH_CATEGORY_URL_SUFFIX  = 'catalog/seo/category_url_suffix';
+
+    /**
+     * Cache for category rewrite suffix
+     *
+     * @var array
+     */
+    protected $_categoryUrlSuffix = array();
 
     /**
      * Retrieve current store categories
@@ -49,11 +64,13 @@ class Mage_Catalog_Helper_Category extends Mage_Core_Helper_Abstract
             return array();
         }
 
+        $recursionLevel = max(0, (int) Mage::app()->getStore()->getConfig('catalog/navigation/max_depth'));
+
         $tree = $category->getTreeModel();
         /* @var $tree Mage_Catalog_Model_Resource_Eav_Mysql4_Category_Tree */
 
         $nodes = $tree->loadNode($parent)
-            ->loadChildren()
+            ->loadChildren($recursionLevel)
             ->getChildren();
 
         $tree->addCollectionData(null, $sorted, $parent, $toLoad, true);
@@ -73,6 +90,9 @@ class Mage_Catalog_Helper_Category extends Mage_Core_Helper_Abstract
      */
     public function getCategoryUrl($category)
     {
+        if ($category instanceof Mage_Catalog_Model_Category) {
+            return $category->getUrl();
+        }
         return Mage::getModel('catalog/category')
             ->setData($category->getData())
             ->getUrl();
@@ -110,4 +130,48 @@ class Mage_Catalog_Helper_Category extends Mage_Core_Helper_Abstract
         return true;
     }
 
+/**
+     * Retrieve category rewrite sufix for store
+     *
+     * @param int $storeId
+     * @return string
+     */
+    public function getCategoryUrlSuffix($storeId = null)
+    {
+        if (is_null($storeId)) {
+            $storeId = Mage::app()->getStore()->getId();
+        }
+
+        if (!isset($this->_categoryUrlSuffix[$storeId])) {
+            $this->_categoryUrlSuffix[$storeId] = Mage::getStoreConfig(self::XML_PATH_CATEGORY_URL_SUFFIX, $storeId);
+        }
+        return $this->_categoryUrlSuffix[$storeId];
+    }
+
+    /**
+     * Retrieve clear url for category as parrent
+     *
+     * @param string $url
+     * @param bool $slash
+     * @param int $storeId
+     *
+     * @return string
+     */
+    public function getCategoryUrlPath($urlPath, $slash = false, $storeId = null)
+    {
+        if (!$this->getCategoryUrlSuffix($storeId)) {
+            return $urlPath;
+        }
+
+        if ($slash) {
+            $regexp     = '#('.preg_quote($this->getCategoryUrlSuffix($storeId), '#').')/$#i';
+            $replace    = '/';
+        }
+        else {
+            $regexp     = '#('.preg_quote($this->getCategoryUrlSuffix($storeId), '#').')$#i';
+            $replace    = '';
+        }
+
+        return preg_replace($regexp, $replace, $urlPath);
+    }
 }

@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_PaypalUk
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -22,11 +28,13 @@
  *
  * PayPal Express Checkout Module
  *
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_PaypalUk_Model_Express extends Mage_Payment_Model_Method_Abstract
 {
     protected $_code  = 'paypaluk_express';
     protected $_formBlockType = 'paypaluk/express_form';
+    protected $_infoBlockType = 'paypaluk/express_info';
 
     /**
      * Availability options
@@ -41,6 +49,9 @@ class Mage_PaypalUk_Model_Express extends Mage_Payment_Model_Method_Abstract
     protected $_canUseCheckout          = true;
     protected $_canUseForMultishipping  = false;
 
+    //Sometime we need this. Reffer to isInitilizeNeeded() method
+    protected $_isInitializeNeeded      = true;
+
     /**
      * Get Paypal API Model
      *
@@ -54,6 +65,11 @@ class Mage_PaypalUk_Model_Express extends Mage_Payment_Model_Method_Abstract
     public function getRedirectUrl()
     {
         return $this->getApi()->getRedirectUrl();
+    }
+
+    public function getSession()
+    {
+        return Mage::getSingleton('paypaluk/session');
     }
 
      /**
@@ -76,9 +92,11 @@ class Mage_PaypalUk_Model_Express extends Mage_Payment_Model_Method_Abstract
         return $this->getCheckout()->getQuote();
     }
 
-    public function getPaymentAction()
+    public function getPaymentAction($paymentAction=null)
     {
-        $paymentAction = Mage::getStoreConfig('payment/paypaluk_express/payment_action');
+        if (is_null($paymentAction)) {
+            $paymentAction = Mage::getStoreConfig('payment/paypaluk_express/payment_action');
+        }
         if (!$paymentAction) {
             $paymentAction = Mage_PaypalUk_Model_Api_Pro::TRXTYPE_AUTH_ONLY;
         } else {
@@ -94,9 +112,9 @@ class Mage_PaypalUk_Model_Express extends Mage_Payment_Model_Method_Abstract
     /*
     * this url will be redirected when the use choose payment
     */
-    public function getCheckoutRedirectUrl()
+    public function getOrderPlaceRedirectUrl()
     {
-        return Mage::getUrl('paypaluk/express/mark');
+        return $this->getRedirectUrl();
     }
 
     /*
@@ -116,25 +134,9 @@ class Mage_PaypalUk_Model_Express extends Mage_Payment_Model_Method_Abstract
     /*
     * set the express check out and get token with response
     */
-    public function markSetExpressCheckout()
-    {
-        $address = $this->getQuote()->getShippingAddress();
-        $this->getApi()
-            ->setTrxtype($this->getPaymentAction())
-            ->setAmount($address->getBaseGrandTotal())
-            ->setCurrencyCode($this->getQuote()->getBaseCurrencyCode())
-            ->setShippingAddress($address)
-            ->callSetExpressCheckout();
-
-        $this->catchError();
-
-        return $this;
-    }
-    /*
-    * set the express check out and get token with response
-    */
     public function shortcutSetExpressCheckout()
     {
+        $this->getQuote()->reserveOrderId();
         $this->getApi()
             ->setTrxtype($this->getPaymentAction())
             ->setAmount($this->getQuote()->getBaseGrandTotal())
@@ -142,6 +144,8 @@ class Mage_PaypalUk_Model_Express extends Mage_Payment_Model_Method_Abstract
             ->callSetExpressCheckout();
 
         $this->catchError();
+
+        $this->getSession()->setExpressCheckoutMethod('shortcut');
 
         return $this;
     }
@@ -160,6 +164,22 @@ class Mage_PaypalUk_Model_Express extends Mage_Payment_Model_Method_Abstract
         return $this;
     }
 
+    /**
+     * Works same as catchError method but instead of saving
+     * error message in session throws exception
+     *
+     * @return Mage_Paypal_Model_Express
+     */
+    public function throwError()
+    {
+        if ($this->getApi()->hasError() || !$this->getRedirectUrl()) {
+            $s = $this->getCheckout();
+            $e = $this->getApi()->getError();
+            Mage::throwException(Mage::helper('paypalUk')->__('There was an error connecting to the Paypal server: %s', $e['message']));
+        }
+        return $this;
+    }
+
 /*********************** GET EXPRESS CHECKOUT DETAILS ***************************/
     public function returnFromPaypal()
     {
@@ -168,7 +188,7 @@ class Mage_PaypalUk_Model_Express extends Mage_Payment_Model_Method_Abstract
             $this->_getExpressCheckoutDetails();
         } catch (Exception $e) {
             $error=$e->getMessage();
-             Mage::getSingleton('paypaluk/session')->addError($e->getMessage());
+             $this->getSession()->addError($e->getMessage());
              $this->_redirect('paypaluk/express/review');
         }
 
@@ -177,7 +197,12 @@ class Mage_PaypalUk_Model_Express extends Mage_Payment_Model_Method_Abstract
                 $this->getApi()->setRedirectUrl(Mage::getUrl('paypaluk/express/review'));
                 break;
             case Mage_Paypal_Model_Api_Nvp::USER_ACTION_COMMIT:
-                $this->getApi()->setRedirectUrl(Mage::getUrl('paypaluk/express/saveOrder'));
+                if ($this->getSession()->getExpressCheckoutMethod() == 'shortcut') {
+                    $this->getApi()->setRedirectUrl(Mage::getUrl('paypaluk/express/saveOrder'));
+                } else {
+                    $this->getApi()->setRedirectUrl(Mage::getUrl('paypal/express/updateOrder'));
+                }
+
                 break;
         }
         return $this;
@@ -206,22 +231,31 @@ class Mage_PaypalUk_Model_Express extends Mage_Payment_Model_Method_Abstract
             Mage::getModel('directory/region')->loadByCode($a->getRegion(), $a->getCountryId())->getId()
         );
 
-        $q->getBillingAddress()
-            ->setFirstname($a->getFirstname())
-            ->setLastname($a->getLastname())
-            ->setEmail($a->getEmail());
+         /*
+        we want to set the billing information
+        only if the customer checkout from shortcut(shopping cart) or
+        if the customer checkout from mark(one page) and guest
+        */
+        if ($this->getSession()->getExpressCheckoutMethod()=='shortcut' ||
+        ($this->getSession()->getExpressCheckoutMethod()!='shortcut' && $q->getCheckoutMethod()!='register')){
+            $q->getBillingAddress()
+                ->setFirstname($a->getFirstname())
+                ->setLastname($a->getLastname())
+                ->setEmail($a->getEmail());
+        }
 
         $q->getShippingAddress()
             ->importCustomerAddress($a)
             ->setCollectShippingRates(true);
 
-        $q->setCheckoutMethod('paypaluk_express');
+        //$q->setCheckoutMethod('paypaluk_express');
 
         $q->getPayment()
             ->setMethod('paypaluk_express')
             ->setPaypalCorrelationId($api->getCorrelationId())
             ->setPaypalPayerId($api->getPayerId())
             ->setPaypalPayerStatus($api->getPayerStatus())
+            ->setAdditionalData($api->getPaypalPayerEmail())
         ;
 
         $q->collectTotals()->save();
@@ -244,12 +278,30 @@ class Mage_PaypalUk_Model_Express extends Mage_Payment_Model_Method_Abstract
            }
         } else {
             $e = $api->getError();
-            Mage::throwException($e['message']);
+            die($e['message']);
         }
         return $this;
     }
 
 /*********************** capture, void and refund ***************************/
+    /**
+     * Authorize
+     *
+     * @param   Varien_Object $orderPayment
+     * @return  Mage_Payment_Model_Abstract
+     */
+    public function authorize(Varien_Object $payment, $amount)
+    {
+        $this->placeOrder($payment);
+        return $this;
+    }
+
+    /**
+     * Capture payment
+     *
+     * @param   Varien_Object $orderPayment
+     * @return  Mage_Payment_Model_Abstract
+     */
     public function capture(Varien_Object $payment, $amount)
     {
         if ($payment->getCcTransId()) {
@@ -273,6 +325,8 @@ class Mage_PaypalUk_Model_Express extends Mage_Payment_Model_Method_Abstract
                 $e = $api->getError();
                 Mage::throwException($e['message']?$e['message']:Mage::helper('paypalUk')->__('Error in capture payment'));
              }
+        } else {
+            $this->placeOrder($payment);
         }
         return $this;
     }
@@ -280,16 +334,16 @@ class Mage_PaypalUk_Model_Express extends Mage_Payment_Model_Method_Abstract
     public function canVoid(Varien_Object $payment)
     {
         if ($payment->getCcTransId()) {
-         $api = $this->getApi()
-            ->setTransactionId($payment->getCcTransId())
-            ->setPayment($payment);
-         if ($api->canVoid()!==false) {
-             $payment->setStatus(self::STATUS_VOID);
-         } else {
-             $e = $api->getError();
-             $payment->setStatus(self::STATUS_ERROR);
-             $payment->setStatusDescription($e['message']);
-         }
+            $api = $this->getApi()
+                ->setTransactionId($payment->getCcTransId())
+                ->setPayment($payment);
+            if ($api->canVoid()!==false) {
+                $payment->setStatus(self::STATUS_VOID);
+            } else {
+                $e = $api->getError();
+                $payment->setStatus(self::STATUS_ERROR);
+                $payment->setStatusDescription($e['message']);
+            }
         } else {
             $payment->setStatus(self::STATUS_ERROR);
             $payment->setStatusDescription(Mage::helper('paypalUk')->__('Invalid transaction id'));
@@ -300,9 +354,9 @@ class Mage_PaypalUk_Model_Express extends Mage_Payment_Model_Method_Abstract
     public function void(Varien_Object $payment)
     {
         $error = false;
-        if ($payment->getCcTransId()) {
+        if ($payment->getVoidTransactionId()) {
              $api = $this->getApi()
-                ->setTransactionId($payment->getCcTransId())
+                ->setTransactionId($payment->getVoidTransactionId())
                 ->setPayment($payment);
 
              if ($api->void()!==false) {
@@ -344,5 +398,46 @@ class Mage_PaypalUk_Model_Express extends Mage_Payment_Model_Method_Abstract
             Mage::throwException($error);
         }
         return $this;
+    }
+
+    /**
+     * initialize payment transaction in case
+     * we doing checkout through onepage checkout
+     */
+    public function initialize($paymentAction, $stateObject)
+    {
+        if ($this->getQuote()->isVirtual()) {
+            $address = $this->getQuote()->getBillingAddress();
+        } else {
+            $address = $this->getQuote()->getShippingAddress();
+        }
+
+        $this->getApi()
+            ->setTrxtype($this->getPaymentAction($paymentAction))
+            ->setAmount($address->getBaseGrandTotal())
+            ->setCurrencyCode($this->getQuote()->getBaseCurrencyCode())
+            ->setShippingAddress($address)
+            ->setInvNum($this->getQuote()->getReservedOrderId())
+            ->callSetExpressCheckout();
+
+        $this->throwError();
+
+        $stateObject->setState(Mage_Sales_Model_Order::STATE_PENDING_PAYMENT);
+        $stateObject->setStatus('pending_paypal');
+        $stateObject->setIsNotified(false);
+
+        Mage::getSingleton('paypal/session')->unsExpressCheckoutMethod();
+
+        return $this;
+    }
+
+    /**
+     * Rewrite standard logic
+     *
+     * @return bool
+     */
+    public function isInitializeNeeded()
+    {
+        return is_object(Mage::registry('_singleton/checkout/type_onepage'));
     }
 }

@@ -4,18 +4,24 @@
  *
  * NOTICE OF LICENSE
  *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
+ * This source file is subject to the Academic Free License (AFL 3.0)
+ * that is bundled with this package in the file LICENSE_AFL.txt.
  * It is also available through the world-wide-web at this URL:
- * http://opensource.org/licenses/osl-3.0.php
+ * http://opensource.org/licenses/afl-3.0.php
  * If you did not receive a copy of the license and are unable to
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   design_default
  * @package    Mage
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
- * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @license    http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
  */
 ?>
 <div class="content-header">
@@ -37,7 +43,7 @@
             <?php echo $this->getSetFormHtml() ?>
         </td>
         <td width="320" style="border-right:1px solid #ddd; padding:0 23px 23px 23px;">
-            <div class="content-header">
+            <div class="content-header skip-header">
             <table cellspacing="0">
                     <tbody>
                         <tr>
@@ -52,7 +58,7 @@
             <?php echo $this->getGroupTreeHtml() ?>
         </td>
         <td style="padding:0 0 23px 23px;">
-            <div class="content-header">
+            <div class="content-header skip-header">
                 <table cellspacing="0">
                     <tbody>
                         <tr>
@@ -62,7 +68,8 @@
                 </table>
             </div>
             <div id="tree-div2" style="height:400px; margin-top:5px;overflow:auto"></div>
-            <script type="text/javascript" language="javascript">
+            <script type="text/javascript">
+			//<![CDATA[
             var TreePanels = function() {
                 // shorthand
                 var Tree = Ext.tree;
@@ -218,6 +225,11 @@
                             return;
                         }
 
+                        if (editSet.ConfigurableNodeExists(editSet.currentNode)) {
+                            alert('<?php echo Mage::helper('catalog')->__('This group contains attributes, used in configurable products. Please move these attributes to another group and try again.') ?>');
+                            return;
+                        }
+
                         if( editSet.currentNode && editSet.currentNode.attributes.cls == 'folder' ) {
                             TreePanels.root.removeChild(editSet.currentNode);
                             for( i in editSet.currentNode.childNodes ) {
@@ -244,6 +256,18 @@
                                 }
                             }
                         }
+                    },
+
+                    ConfigurableNodeExists : function(currentNode) {
+                        for (var i in currentNode.childNodes ) {
+                            if (currentNode.childNodes[i].id) {
+                                child = editSet.currentNode.childNodes[i];
+                                if (child.attributes.is_used_in_configurable) {
+                                    return true;
+                                }
+                            }
+                        }
+                        return false;
                     },
 
                     rightAppend : function(node) {
@@ -380,6 +404,7 @@
 
             initVars();
             Ext.EventManager.onDocumentReady(TreePanels.init, TreePanels, true);
+			//]]>
             </script>
         </td>
     </tr>

@@ -12,32 +12,39 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Checkout
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
 
 class Mage_Checkout_Block_Cart_Shipping extends Mage_Checkout_Block_Cart_Abstract
 {
+    protected $_carriers = null;
+    protected $_rates = array();
+    protected $_address = array();
+
     public function getEstimateRates()
     {
         if (empty($this->_rates)) {
             $groups = $this->getAddress()->getGroupedAllShippingRates();
-            if (!empty($groups)) {
-                $ratesFilter = new Varien_Filter_Object_Grid();
-                $ratesFilter->addFilter(Mage::app()->getStore()->getPriceFilter(), 'price');
-
-                foreach ($groups as $code => $groupItems) {
-                	$groups[$code] = $ratesFilter->filter($groupItems);
-                }
-            }
-            return $this->_rates = $groups;
+            $this->_rates = $groups;
         }
         return $this->_rates;
     }
 
+    /**
+     * Get address model
+     *
+     * @return Mage_Sales_Model_Quote_Address
+     */
     public function getAddress()
     {
         if (empty($this->_address)) {
@@ -92,5 +99,81 @@ class Mage_Checkout_Block_Cart_Shipping extends Mage_Checkout_Block_Cart_Abstrac
     public function getStateActive()
     {
         return (bool)Mage::getStoreConfig('carriers/dhl/active') || (bool)Mage::getStoreConfig('carriers/tablerate/active');
+    }
+
+    public function formatPrice($price)
+    {
+        return $this->getQuote()->getStore()->convertPrice($price, true);
+    }
+
+    public function getShippingPrice($price, $flag)
+    {
+        return $this->formatPrice($this->helper('tax')->getShippingPrice($price, $flag, $this->getAddress()));
+    }
+
+    /**
+     * Obtain available carriers instances
+     *
+     * @return array
+     */
+    public function getCarriers()
+    {
+        if (null === $this->_carriers) {
+            $this->_carriers = array();
+            $this->getEstimateRates();
+            foreach ($this->_rates as $rateGroup) {
+                if (!empty($rateGroup)) {
+                    foreach ($rateGroup as $rate) {
+                        $this->_carriers[] = $rate->getCarrierInstance();
+                    }
+                }
+            }
+        }
+        return $this->_carriers;
+    }
+
+    /**
+     * Check if one of carriers require state/province
+     *
+     * @return bool
+     */
+    public function isStateProvinceRequired()
+    {
+        foreach ($this->getCarriers() as $carrier) {
+            if ($carrier->isStateProvinceRequired()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Check if one of carriers require city
+     *
+     * @return bool
+     */
+    public function isCityRequired()
+    {
+        foreach ($this->getCarriers() as $carrier) {
+            if ($carrier->isCityRequired()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Check if one of carriers require zip code
+     *
+     * @return bool
+     */
+    public function isZipCodeRequired()
+    {
+        foreach ($this->getCarriers() as $carrier) {
+            if ($carrier->isZipCodeRequired()) {
+                return true;
+            }
+        }
+        return false;
     }
 }

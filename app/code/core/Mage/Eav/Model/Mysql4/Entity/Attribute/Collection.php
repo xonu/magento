@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Eav
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -27,6 +33,12 @@
  */
 class Mage_Eav_Model_Mysql4_Entity_Attribute_Collection extends Mage_Core_Model_Mysql4_Collection_Abstract
 {
+    /**
+     * Add attribute set info flag
+     *
+     * @var boolean
+     */
+    protected $_addSetInfoFlag = false;
 
     /**
      * Enter description here...
@@ -256,4 +268,107 @@ class Mage_Eav_Model_Mysql4_Entity_Attribute_Collection extends Mage_Core_Model_
         return $this;
     }
 
+    public function addSetInfo($flag=true)
+    {
+        $this->_addSetInfoFlag = $flag;
+        return $this;
+    }
+
+    protected function _addSetInfo()
+    {
+        if ($this->_addSetInfoFlag) {
+            $attributeIds = array();
+            foreach ($this->_data as &$dataItem) {
+            	$attributeIds[] = $dataItem['attribute_id'];
+            }
+            $attributeToSetInfo = array();
+
+            if (count($attributeIds) > 0) {
+                $select = $this->getConnection()->select()
+                    ->from(
+                        array('entity' => $this->getTable('entity_attribute')),
+                        array('attribute_id','attribute_set_id', 'attribute_group_id', 'sort_order')
+                    )
+                    ->joinLeft(
+                        array('group' => $this->getTable('attribute_group')),
+                        'entity.attribute_group_id=group.attribute_group_id',
+                        array('group_sort_order' => 'sort_order')
+                    )
+                    ->where('attribute_id IN (?)', $attributeIds);
+                $result = $this->getConnection()->fetchAll($select);
+
+                foreach ($result as $row) {
+                    $data = array(
+                        'group_id'      => $row['attribute_group_id'],
+                        'group_sort'    => $row['group_sort_order'],
+                        'sort'          => $row['sort_order']
+                    );
+                    $attributeToSetInfo[$row['attribute_id']][$row['attribute_set_id']] = $data;
+                }
+            }
+
+            foreach ($this->_data as &$attributeData) {
+                if (isset($attributeToSetInfo[$attributeData['attribute_id']])) {
+                    $setInfo = $attributeToSetInfo[$attributeData['attribute_id']];
+                } else {
+                    $setInfo = array();
+                }
+
+                $attributeData['attribute_set_info'] = $setInfo;
+            }
+
+            unset($attributeToSetInfo);
+            unset($attributeIds);
+        }
+    }
+
+    protected function _afterLoadData()
+    {
+        $this->_addSetInfo();
+        return parent::_afterLoadData();
+    }
+
+    /**
+     * TODO: issue #5126
+     *
+     * @return unknown
+     */
+    public function checkConfigurableProducts()
+    {
+// was:
+/*
+SELECT `main_table`.*, `entity_attribute`.*
+FROM `eav_attribute` AS `main_table`
+    INNER JOIN `eav_entity_attribute` AS `entity_attribute` ON entity_attribute.attribute_id=main_table.attribute_id
+WHERE (entity_attribute.attribute_group_id='46') AND (main_table.is_visible=1)
+*/
+// to be done: left join catalog_product_super_attribute and count appropriate lines
+/*
+SELECT `main_table`.*, `entity_attribute`.*, COUNT(`super`.attribute_id) AS `is_used_in_configurable`
+FROM `eav_attribute` AS `main_table`
+    INNER JOIN `eav_entity_attribute` AS `entity_attribute` ON entity_attribute.attribute_id=main_table.attribute_id
+    LEFT JOIN `catalog_product_super_attribute` AS `super` ON `main_table`.attribute_id=`super`.attribute_id
+WHERE (entity_attribute.attribute_group_id='46') AND (main_table.is_visible=1)
+GROUP BY `main_table`.attribute_id
+*/
+        return $this;
+    }
+
+    /**
+     * Specify collection attribute codes filter
+     *
+     * @param   string || array $code
+     * @return  Mage_Eav_Model_Mysql4_Entity_Attribute_Collection
+     */
+    public function setCodeFilter($code)
+    {
+        if (empty($code)) {
+        	return $this;
+        }
+        if (!is_array($code)) {
+        	$code = array($code);
+        }
+        $this->getSelect()->where('main_table.attribute_code IN(?)', $code);
+        return $this;
+    }
 }

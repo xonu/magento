@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Core
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -24,6 +30,7 @@
  *
  * @category   Mage
  * @package    Mage_Core
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Page_Block_Template_Links extends Mage_Core_Block_Template
 {
@@ -67,7 +74,7 @@ class Mage_Page_Block_Template_Links extends Mage_Core_Block_Template
      * @param string|array $aParams
      * @param string $beforeText
      * @param string $afterText
-     * @return Mage_Page_Block_Html_Toplinks
+     * @return Mage_Page_Block_Template_Links
      */
     public function addLink($label, $url='', $title='', $prepare=false, $urlParams=array(),
         $position=null, $liParams=null, $aParams=null, $beforeText='', $afterText='')
@@ -85,7 +92,7 @@ class Mage_Page_Block_Template_Links extends Mage_Core_Block_Template
             'after_text'    => $afterText,
         ));
 
-        if (is_int($position)) {
+        if (intval($position) > 0) {
             while (isset($this->_links[$position])) {
                 $position++;
             }
@@ -125,7 +132,7 @@ class Mage_Page_Block_Template_Links extends Mage_Core_Block_Template
     /**
      * Set first/last
      *
-     * @return Mage_Page_Block_Html_Toplinks
+     * @return Mage_Page_Block_Template_Links
      */
     protected function _beforeToHtml()
     {

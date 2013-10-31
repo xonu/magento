@@ -4,18 +4,24 @@
  *
  * NOTICE OF LICENSE
  *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
+ * This source file is subject to the Academic Free License (AFL 3.0)
+ * that is bundled with this package in the file LICENSE_AFL.txt.
  * It is also available through the world-wide-web at this URL:
- * http://opensource.org/licenses/osl-3.0.php
+ * http://opensource.org/licenses/afl-3.0.php
  * If you did not receive a copy of the license and are unable to
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   design_default
  * @package    Mage
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
- * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @license    http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
  */
 ?>
 <?php if($_shippingRateGroups = $this->getShippingRates()): ?>
@@ -30,12 +36,23 @@
                 <?php $_code=$_rate->getCode() ?>
                 <li>
                    <?php if ($_rate->getErrorMessage()): ?>
-                        <?php echo $_rate->getErrorMessage() ?>
+                        <ul class="messages">
+                            <li class="error-msg"><?php echo $_rate->getErrorMessage() ?></li>
+                        </ul>
                    <?php else: ?>
                         <?php $_checked = $this->isMethodActive($_code) ? 'checked="checked"' : '' ?>
                         <input <?php echo $_radioProperty ?> value="<?php echo $_code ?>" id="s_method_<?php echo $_code ?>" <?php echo $_checked ?>/>
                         <label class="normal" for="s_method_<?php echo $_code ?>">
-                            <?php echo $_rate->getMethodDescription() ?> - <strong><?php echo $_rate->getPrice() ?></strong>
+                            <?php echo $_rate->getMethodTitle() ? $_rate->getMethodTitle() : $_rate->getMethodDescription()?> -
+                            <strong>
+                                <?php $_excl = $this->getShippingPrice($_rate->getPrice(), $this->helper('tax')->displayShippingPriceIncludingTax()); ?>
+                                <?php $_incl = $this->getShippingPrice($_rate->getPrice(), true); ?>
+
+                                <?php echo $_excl; ?>
+                                <?php if ($this->helper('tax')->displayShippingBothPrices() && $_incl != $_excl): ?>
+                                    (<?php echo $this->__('Incl. Tax'); ?> <?php echo $_incl; ?>)
+                                <?php endif; ?>
+                            </strong>
                         </label>
                    <?php endif ?>
                 </li>
@@ -48,7 +65,16 @@
     <?php if ($_rate = $this->getActiveMethodRate()): ?>
         <div id="order:shipping-method-info">
             <strong><?php echo $this->getCarrierName($_rate->getCarrier()) ?></strong><br/>
-            <?php echo $_rate->getMethodDescription() ?> - <strong><?php echo $_rate->getPrice() ?></strong>
+            <?php echo $_rate->getMethodTitle() ? $_rate->getMethodTitle() : $_rate->getMethodDescription() ?> -
+            <strong>
+                <?php $_excl = $this->getShippingPrice($_rate->getPrice(), $this->helper('tax')->displayShippingPriceIncludingTax()); ?>
+                <?php $_incl = $this->getShippingPrice($_rate->getPrice(), true); ?>
+
+                <?php echo $_excl; ?>
+                <?php if ($this->helper('tax')->displayShippingBothPrices() && $_incl != $_excl): ?>
+                    (<?php echo $this->__('Incl. Tax'); ?> <?php echo $_incl; ?>)
+                <?php endif; ?>
+            </strong>
             <!--input type="text" class="input-text" style="width:70px"/-->
             <br/>
             <a href="#" onclick="$('order:shipping-method-info').hide();$('order:shipping-method-choose').show();return false">
@@ -67,3 +93,8 @@
         </a>
     </div>
 <?php endif; ?>
+<div style="display:none;" id="shipping-method-overlay" class="overlay"><span><?php echo $this->__('Shipping method selection is not applicable') ?></span></div>
+<script type="text/javascript">
+order.overlay('shipping-method-overlay', <?php if ($this->getQuote()->isVirtual()): ?>false<?php else: ?>true<?php endif; ?>);
+order.overlay('address-shipping-overlay', <?php if ($this->getQuote()->isVirtual()): ?>false<?php else: ?>true<?php endif; ?>);
+</script>

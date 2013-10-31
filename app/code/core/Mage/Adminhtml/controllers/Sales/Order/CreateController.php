@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Adminhtml
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -23,6 +29,7 @@
  *
  * @category   Mage
  * @package    Mage_Adminhtml
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Adminhtml_Sales_Order_CreateController extends Mage_Adminhtml_Controller_Action
 {
@@ -113,8 +120,6 @@ class Mage_Adminhtml_Sales_Order_CreateController extends Mage_Adminhtml_Control
      */
     protected function _processData()
     {
-
-
         /**
          * Saving order data
          */
@@ -123,30 +128,37 @@ class Mage_Adminhtml_Sales_Order_CreateController extends Mage_Adminhtml_Control
         }
 
         /**
+         * init first billing address, need for virtual products
+         */
+        $this->_getOrderCreateModel()->getBillingAddress();
+
+        /**
          * Flag for using billing address for shipping
          */
-        $syncFlag = $this->getRequest()->getPost('shipping_as_billing');
-        if (!is_null($syncFlag)) {
-            $this->_getOrderCreateModel()->setShippingAsBilling((int)$syncFlag);
+        if (!$this->_getOrderCreateModel()->getQuote()->isVirtual()) {
+            $syncFlag = $this->getRequest()->getPost('shipping_as_billing');
+            if (!is_null($syncFlag)) {
+                $this->_getOrderCreateModel()->setShippingAsBilling((int)$syncFlag);
+            }
         }
 
         /**
          * Change shipping address flag
          */
-        if ($this->getRequest()->getPost('reset_shipping')) {
+        if (!$this->_getOrderCreateModel()->getQuote()->isVirtual() && $this->getRequest()->getPost('reset_shipping')) {
             $this->_getOrderCreateModel()->resetShippingMethod(true);
         }
 
         /**
          * Collecting shipping rates
          */
-        if ($this->getRequest()->getPost('collect_shipping_rates')) {
+        if (!$this->_getOrderCreateModel()->getQuote()->isVirtual() && $this->getRequest()->getPost('collect_shipping_rates')) {
             $this->_getOrderCreateModel()->collectShippingRates();
         }
 
 
         /**
-         * Applu mass changes from sidebar
+         * Apply mass changes from sidebar
          */
         if ($data = $this->getRequest()->getPost('sidebar')) {
             $this->_getOrderCreateModel()->applySidebarData($data);
@@ -183,7 +195,7 @@ class Mage_Adminhtml_Sales_Order_CreateController extends Mage_Adminhtml_Control
         }
 
         /**
-         * Moove quote item
+         * Move quote item
          */
         if ( ($itemId = (int) $this->getRequest()->getPost('move_item'))
             && ($moveTo = (string) $this->getRequest()->getPost('to')) ) {
@@ -260,6 +272,7 @@ class Mage_Adminhtml_Sales_Order_CreateController extends Mage_Adminhtml_Control
 
     public function reorderAction()
     {
+//        $this->_initSession();
         $this->_getSession()->clear();
         $orderId = $this->getRequest()->getParam('order_id');
         $order = Mage::getModel('sales/order')->load($orderId);
@@ -297,7 +310,8 @@ class Mage_Adminhtml_Sales_Order_CreateController extends Mage_Adminhtml_Control
         }
         catch (Exception $e){
             $this->_reloadQuote();
-            $this->_getSession()->addException($e, $this->__('Processing data problem'));
+//            $this->_getSession()->addException($e, $this->__('Processing data problem'));
+            $this->_getSession()->addException($e, $e->getMessage());
         }
 
 
@@ -385,7 +399,6 @@ class Mage_Adminhtml_Sales_Order_CreateController extends Mage_Adminhtml_Control
             $url = $this->_redirect('*/*/');
         }
         catch (Exception $e){
-            echo $e;
             $this->_getSession()->addException($e, $this->__('Order saving error: %s', $e->getMessage()));
             $url = $this->_redirect('*/*/');
         }

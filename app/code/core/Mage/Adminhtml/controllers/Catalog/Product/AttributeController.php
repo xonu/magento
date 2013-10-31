@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Adminhtml
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -23,6 +29,7 @@
  *
  * @category   Mage
  * @package    Mage_Adminhtml
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 
 class Mage_Adminhtml_Catalog_Product_AttributeController extends Mage_Adminhtml_Controller_Action
@@ -127,7 +134,9 @@ class Mage_Adminhtml_Catalog_Product_AttributeController extends Mage_Adminhtml_
     public function saveAction()
     {
         if ($data = $this->getRequest()->getPost()) {
+            $redirectBack   = $this->getRequest()->getParam('back', false);
             $model = Mage::getModel('catalog/entity_attribute');
+            /* @var $model Mage_Catalog_Model_Entity_Attribute */
 
             if ($id = $this->getRequest()->getParam('attribute_id')) {
 
@@ -140,13 +149,15 @@ class Mage_Adminhtml_Catalog_Product_AttributeController extends Mage_Adminhtml_
                     $this->_redirect('*/*/');
                     return;
                 }
+
                 $data['attribute_code'] = $model->getAttributeCode();
                 $data['is_user_defined'] = $model->getIsUserDefined();
                 $data['frontend_input'] = $model->getFrontendInput();
-
             }
 
-            $data['backend_type'] = $model->getBackendTypeByInput($data['frontend_input']);
+            if (is_null($model->getIsUserDefined()) || $model->getIsUserDefined() != 0) {
+                $data['backend_type'] = $model->getBackendTypeByInput($data['frontend_input']);
+            }
 
             $defaultValueField = $model->getDefaultValueByInput($data['frontend_input']);
             if ($defaultValueField) {
@@ -189,8 +200,10 @@ class Mage_Adminhtml_Catalog_Product_AttributeController extends Mage_Adminhtml_
                         'attribute'=> $model->getId(),
                         '_current' => true
                     ));
+                } elseif ($redirectBack) {
+                    $this->_redirect('*/*/edit', array('attribute_id' => $model->getId(),'_current'=>true));
                 } else {
-                    $this->_redirect('*/*/');
+                    $this->_redirect('*/*/', array());
                 }
                 return;
             } catch (Exception $e) {

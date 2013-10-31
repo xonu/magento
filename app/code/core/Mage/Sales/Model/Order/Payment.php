@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Sales
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -92,6 +98,8 @@ class Mage_Sales_Model_Order_Payment extends Mage_Payment_Model_Info
      */
     public function place()
     {
+        Mage::dispatchEvent('sales_order_payment_place_start', array('payment' => $this));
+
         $this->setAmountOrdered($this->getOrder()->getTotalDue());
         $this->setBaseAmountOrdered($this->getOrder()->getBaseTotalDue());
 
@@ -102,6 +110,9 @@ class Mage_Sales_Model_Order_Payment extends Mage_Payment_Model_Info
 
         $orderState = Mage_Sales_Model_Order::STATE_NEW;
         $orderStatus= false;
+
+        $stateObject = new Varien_Object();
+
         /**
          * validating payment method again
          */
@@ -110,53 +121,68 @@ class Mage_Sales_Model_Order_Payment extends Mage_Payment_Model_Info
             /**
              * Run action declared for payment method in configuration
              */
-            switch ($action) {
-                case Mage_Payment_Model_Method_Abstract::ACTION_AUTHORIZE:
-                case Mage_Paypal_Model_Api_Abstract::PAYMENT_TYPE_AUTH:
-                    $methodInstance->authorize($this, $this->getOrder()->getBaseTotalDue());
 
-                    $this->setAmountAuthorized($this->getOrder()->getTotalDue());
-                    $this->setBaseAmountAuthorized($this->getOrder()->getBaseTotalDue());
+            if ($methodInstance->isInitializeNeeded()) {
+                $methodInstance->initialize($action, $stateObject);
+            } else {
+                switch ($action) {
+                    case Mage_Payment_Model_Method_Abstract::ACTION_AUTHORIZE:
+                    case Mage_Paypal_Model_Api_Abstract::PAYMENT_TYPE_AUTH:
+                        $methodInstance->authorize($this, $this->getOrder()->getBaseTotalDue());
 
-                    $orderState = Mage_Sales_Model_Order::STATE_PROCESSING;
-                    break;
-                case Mage_Payment_Model_Method_Abstract::ACTION_AUTHORIZE_CAPTURE:
-                case Mage_Paypal_Model_Api_Abstract::PAYMENT_TYPE_SALE:
-                    $invoice = $this->_invoice();
+                        $this->setAmountAuthorized($this->getOrder()->getTotalDue());
+                        $this->setBaseAmountAuthorized($this->getOrder()->getBaseTotalDue());
 
-                    $this->setAmountAuthorized($this->getOrder()->getTotalDue());
-                    $this->setBaseAmountAuthorized($this->getOrder()->getBaseTotalDue());
+                        $orderState = Mage_Sales_Model_Order::STATE_PROCESSING;
+                        break;
+                    case Mage_Payment_Model_Method_Abstract::ACTION_AUTHORIZE_CAPTURE:
+                    case Mage_Paypal_Model_Api_Abstract::PAYMENT_TYPE_SALE:
+                        $invoice = $this->_invoice();
 
-                    $orderState = Mage_Sales_Model_Order::STATE_PROCESSING;
-                    break;
-                default:
-                    break;
+                        $this->setAmountAuthorized($this->getOrder()->getTotalDue());
+                        $this->setBaseAmountAuthorized($this->getOrder()->getBaseTotalDue());
+
+                        $orderState = Mage_Sales_Model_Order::STATE_PROCESSING;
+                        break;
+                    default:
+                        break;
+                }
             }
         }
 
-        /*
-        * this flag will set if the order went to as authorization under fraud service for payflowpro
-        */
-        if ($this->getFraudFlag()) {
-            $orderStatus = $methodInstance->getConfigData('fraud_order_status');
-            $orderState = Mage_Sales_Model_Order::STATE_HOLDED;
+        $orderIsNotified = null;
+        if ($stateObject->getState() && $stateObject->getStatus()) {
+            $orderState      = $stateObject->getState();
+            $orderStatus     = $stateObject->getStatus();
+            $orderIsNotified = $stateObject->getIsNotified();
         } else {
-            /**
-             * Change order status if it specified
+            /*
+             * this flag will set if the order went to as authorization under fraud service for payflowpro
              */
-            $orderStatus = $methodInstance->getConfigData('order_status');
-        }
+            if ($this->getFraudFlag()) {
+                $orderStatus = $methodInstance->getConfigData('fraud_order_status');
+                $orderState = Mage_Sales_Model_Order::STATE_HOLDED;
+            } else {
+                /**
+                 * Change order status if it specified
+                 */
+                $orderStatus = $methodInstance->getConfigData('order_status');
+            }
 
-        if (!$orderStatus) {
-            $orderStatus = $this->getOrder()->getConfig()->getStateDefaultStatus($orderState);
+            if (!$orderStatus) {
+                $orderStatus = $this->getOrder()->getConfig()->getStateDefaultStatus($orderState);
+            }
         }
 
         $this->getOrder()->setState($orderState);
         $this->getOrder()->addStatusToHistory(
             $orderStatus,
             $this->getOrder()->getCustomerNote(),
-            $this->getOrder()->getCustomerNoteNotify()
+            (null !== $orderIsNotified ? $orderIsNotified : $this->getOrder()->getCustomerNoteNotify())
         );
+
+        Mage::dispatchEvent('sales_order_payment_place_end', array('payment' => $this));
+
         return $this;
     }
 
@@ -171,11 +197,13 @@ class Mage_Sales_Model_Order_Payment extends Mage_Payment_Model_Info
             $invoice = $this->_invoice();
         }
 
-        $this->getMethodInstance()->capture($this, sprintf('%.2f', $invoice->getBaseGrandTotal()));
+        Mage::dispatchEvent('sales_order_payment_capture', array('payment' => $this, 'invoice' => $invoice));
 
-        $invoice->setTransactionId($this->getLastTransId());
+        $this->getMethodInstance()->capture($this, sprintf('%.2f', $invoice->getBaseGrandTotal()));
+        $this->getMethodInstance()->processInvoice($invoice, $this);
         return $this;
     }
+
 
     /**
      * Register payment fact
@@ -190,6 +218,9 @@ class Mage_Sales_Model_Order_Payment extends Mage_Payment_Model_Info
 
         $this->setShippingCaptured($this->getShippingCaptured()+$invoice->getShippingAmount());
         $this->setBaseShippingCaptured($this->getBaseShippingCaptured()+$invoice->getBaseShippingAmount());
+
+        Mage::dispatchEvent('sales_order_payment_pay', array('payment' => $this, 'invoice' => $invoice));
+
         return $this;
     }
 
@@ -206,6 +237,9 @@ class Mage_Sales_Model_Order_Payment extends Mage_Payment_Model_Info
 
         $this->setShippingCaptured($this->getShippingCaptured()-$invoice->getShippingAmount());
         $this->setBaseShippingCaptured($this->getBaseShippingCaptured()-$invoice->getBaseShippingAmount());
+
+        Mage::dispatchEvent('sales_order_payment_cancel_invoice', array('payment' => $this, 'invoice' => $invoice));
+
         return $this;
     }
 
@@ -217,16 +251,10 @@ class Mage_Sales_Model_Order_Payment extends Mage_Payment_Model_Info
      */
     protected function _invoice()
     {
-        $convertor = Mage::getModel('sales/convert_order');
-        $invoice = $convertor->toInvoice($this->getOrder());
-        foreach ($this->getOrder()->getAllItems() as $orderItem) {
-        	$invoiceItem = $convertor->itemToInvoiceItem($orderItem)
-        	   ->setQty($orderItem->getQtyToInvoice());
-            $invoice->addItem($invoiceItem);
-        }
-        $invoice->collectTotals()
-            ->register()
-            ->capture();
+        $invoice = $this->getOrder()->prepareInvoice();
+
+        $invoice->register()->capture();
+
         $this->getOrder()->addRelatedObject($invoice);
         return $invoice;
     }
@@ -243,8 +271,12 @@ class Mage_Sales_Model_Order_Payment extends Mage_Payment_Model_Info
 
     public function void(Varien_Object $document)
     {
+        $this->getMethodInstance()->processBeforeVoid($document, $this);
         //$this->getMethodInstance()->void($document);
         $this->getMethodInstance()->void($this);
+
+        Mage::dispatchEvent('sales_order_payment_void', array('payment' => $this, 'invoice' => $document));
+
         return $this;
     }
 
@@ -253,9 +285,9 @@ class Mage_Sales_Model_Order_Payment extends Mage_Payment_Model_Info
         if ($this->getMethodInstance()->canRefund() && $creditmemo->getDoTransaction()) {
             $this->setCreditmemo($creditmemo);
             if ($creditmemo->getInvoice()) {
-                $this->setRefundTransactionId($creditmemo->getInvoice()->getTransactionId());
+                $this->getMethodInstance()->processBeforeRefund($creditmemo->getInvoice(), $this);
                 $this->getMethodInstance()->refund($this, $creditmemo->getBaseGrandTotal());
-                $creditmemo->setTransactionId($this->getLastTransId());
+                $this->getMethodInstance()->processCreditmemo($creditmemo, $this);
             }
         }
 
@@ -264,6 +296,9 @@ class Mage_Sales_Model_Order_Payment extends Mage_Payment_Model_Info
 
         $this->setShippingRefunded($this->getShippingRefunded()+$creditmemo->getShippingAmount());
         $this->setBaseShippingRefunded($this->getBaseShippingRefunded()+$creditmemo->getBaseShippingAmount());
+
+        Mage::dispatchEvent('sales_order_payment_refund', array('payment' => $this, 'creditmemo' => $creditmemo));
+
         return $this;
     }
 
@@ -274,12 +309,18 @@ class Mage_Sales_Model_Order_Payment extends Mage_Payment_Model_Info
 
         $this->setShippingRefunded($this->getShippingRefunded()-$creditmemo->getShippingAmount());
         $this->setBaseShippingRefunded($this->getBaseShippingRefunded()-$creditmemo->getBaseShippingAmount());
+
+        Mage::dispatchEvent('sales_order_payment_cancel_creditmemo', array('payment' => $this, 'creditmemo' => $creditmemo));
+
         return $this;
     }
 
     public function cancel()
     {
         $this->getMethodInstance()->cancel($this);
+
+        Mage::dispatchEvent('sales_order_payment_cancel', array('payment' => $this));
+
         return $this;
     }
 }

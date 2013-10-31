@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Adminhtml
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -55,7 +61,7 @@ class Mage_Adminhtml_Block_Permissions_Tab_Rolesedit extends Mage_Adminhtml_Bloc
         $rid = Mage::app()->getRequest()->getParam('rid', false);
         $resources = Mage::getModel('admin/roles')->getResourcesTree();
 
-        $rootArray = $this->_getNodeJson($resources);
+        $rootArray = $this->_getNodeJson($resources->admin, 1);
 
         $json = Zend_Json::encode(isset($rootArray['children']) ? $rootArray['children'] : array());
 
@@ -95,6 +101,9 @@ class Mage_Adminhtml_Block_Permissions_Tab_Rolesedit extends Mage_Adminhtml_Bloc
             //$item['cls'] = 'fiche-node';
             foreach ($children as $child) {
                 if ($child->getName()!='title' && $child->getName()!='sort_order') {
+                    if (!(string)$child->title) {
+                        continue;
+                    }
                     if ($level != 0) {
                         $item['children'][] = $this->_getNodeJson($child, $level+1);
                     } else {

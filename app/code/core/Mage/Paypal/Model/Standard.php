@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Paypal
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -22,6 +28,7 @@
  *
  * PayPal Standard Checkout Module
  *
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Paypal_Model_Standard extends Mage_Payment_Model_Method_Abstract
 {
@@ -121,12 +128,18 @@ class Mage_Paypal_Model_Standard extends Mage_Payment_Model_Method_Abstract
 
     public function getOrderPlaceRedirectUrl()
     {
-          return Mage::getUrl('paypal/standard/redirect');
+          return Mage::getUrl('paypal/standard/redirect', array('_secure' => true));
     }
 
     public function getStandardCheckoutFormFields()
     {
-        $a = $this->getQuote()->getShippingAddress();
+        if ($this->getQuote()->getIsVirtual()) {
+            $a = $this->getQuote()->getBillingAddress();
+            $b = $this->getQuote()->getShippingAddress();
+        } else {
+            $a = $this->getQuote()->getShippingAddress();
+            $b = $this->getQuote()->getBillingAddress();
+        }
         //getQuoteCurrencyCode
         $currency_code = $this->getQuote()->getBaseCurrencyCode();
         /*
@@ -143,8 +156,8 @@ class Mage_Paypal_Model_Standard extends Mage_Payment_Model_Method_Abstract
 
         $sArr = array(
             'business'          => Mage::getStoreConfig('paypal/wps/business_account'),
-            'return'            => Mage::getUrl('paypal/standard/success'),
-            'cancel_return'     => Mage::getUrl('paypal/standard/cancel'),
+            'return'            => Mage::getUrl('paypal/standard/success',array('_secure' => true)),
+            'cancel_return'     => Mage::getUrl('paypal/standard/cancel',array('_secure' => false)),
             'notify_url'        => Mage::getUrl('paypal/standard/ipn'),
             'invoice'           => $this->getCheckout()->getLastRealOrderId(),
             'currency_code'     => $currency_code,
@@ -180,14 +193,16 @@ class Mage_Paypal_Model_Standard extends Mage_Payment_Model_Method_Abstract
         if ($transaciton_type=='O') {
             $businessName = Mage::getStoreConfig('paypal/wps/business_name');
             $storeName = Mage::getStoreConfig('store/system/name');
-            $amount = $a->getBaseSubtotal()-$a->getBaseDiscountAmount();
+            $amount = ($a->getBaseSubtotal()+$b->getBaseSubtotal())-($a->getBaseDiscountAmount()+$b->getBaseDiscountAmount());
             $sArr = array_merge($sArr, array(
                     'cmd'           => '_ext-enter',
                     'redirect_cmd'  => '_xclick',
                     'item_name'     => $businessName ? $businessName : $storeName,
                     'amount'        => sprintf('%.2f', $amount),
                 ));
-            $tax = sprintf('%.2f', $this->getQuote()->getShippingAddress()->getBaseTaxAmount());
+            $_shippingTax = $this->getQuote()->getShippingAddress()->getBaseTaxAmount();
+            $_billingTax = $this->getQuote()->getBillingAddress()->getBaseTaxAmount();
+            $tax = sprintf('%.2f', $_shippingTax + $_billingTax);
             if ($tax>0) {
                   $sArr = array_merge($sArr, array(
                         'tax' => $tax
@@ -203,16 +218,19 @@ class Mage_Paypal_Model_Standard extends Mage_Payment_Model_Method_Abstract
             if ($items) {
                 $i = 1;
                 foreach($items as $item){
-                     //echo "<pre>"; print_r($item->getData()); echo"</pre>";
-                     $sArr = array_merge($sArr, array(
+                    if ($item->getParentItem()) {
+                        continue;
+                    }
+                    //echo "<pre>"; print_r($item->getData()); echo"</pre>";
+                    $sArr = array_merge($sArr, array(
                         'item_name_'.$i      => $item->getName(),
                         'item_number_'.$i      => $item->getSku(),
                         'quantity_'.$i      => $item->getQty(),
-                        'amount_'.$i      => ($item->getBaseCalculationPrice() - $item->getBaseDiscountAmount()),
+                        'amount_'.$i      => sprintf('%.2f', ($item->getBaseCalculationPrice() - $item->getBaseDiscountAmount())),
                     ));
                     if($item->getBaseTaxAmount()>0){
                         $sArr = array_merge($sArr, array(
-                        'tax_'.$i      => sprintf('%.2f',$item->getBaseTaxAmount()),
+                        'tax_'.$i      => sprintf('%.2f',$item->getBaseTaxAmount()/$item->getQty()),
                         ));
                     }
                     $i++;
@@ -222,16 +240,18 @@ class Mage_Paypal_Model_Standard extends Mage_Payment_Model_Method_Abstract
 
         $totalArr = $a->getTotals();
         $shipping = sprintf('%.2f', $this->getQuote()->getShippingAddress()->getBaseShippingAmount());
-        if ($shipping>0) {
+        if ($shipping>0 && !$this->getQuote()->getIsVirtual()) {
           if ($transaciton_type=='O') {
               $sArr = array_merge($sArr, array(
                     'shipping' => $shipping
               ));
           } else {
+              $shippingTax = $this->getQuote()->getShippingAddress()->getBaseShippingTaxAmount();
               $sArr = array_merge($sArr, array(
                     'item_name_'.$i   => $totalArr['shipping']->getTitle(),
                     'quantity_'.$i    => 1,
-                    'amount_'.$i      => $shipping,
+                    'amount_'.$i      => sprintf('%.2f',$shipping),
+                    'tax_'.$i         => sprintf('%.2f',$shippingTax),
               ));
               $i++;
           }
@@ -312,13 +332,13 @@ class Mage_Paypal_Model_Standard extends Mage_Payment_Model_Method_Abstract
 
             } else {
 
-                if ($this->getIpnFormData('mc_gross')!=$order->getGrandTotal()) {
+                if ($this->getIpnFormData('mc_gross')!=$order->getBaseGrandTotal()) {
                     //when grand total does not equal, need to have some logic to take care
                     $order->addStatusToHistory(
                         $order->getStatus(),//continue setting current order status
                         Mage::helper('paypal')->__('Order total amount does not match paypal gross total amount')
                     );
-
+                    $order->save();
                 } else {
                     /*
                     //quote id
@@ -331,53 +351,55 @@ class Mage_Paypal_Model_Standard extends Mage_Payment_Model_Method_Abstract
                         $order->sendNewOrderEmail();
                     }
                     */
+
+                    // get from config order status to be set
+                    $newOrderStatus = $this->getConfigData('order_status', $order->getStoreId());
+                    if (empty($newOrderStatus)) {
+                        $newOrderStatus = $order->getStatus();
+                    }
+
                     /*
                     if payer_status=verified ==> transaction in sale mode
                     if transactin in sale mode, we need to create an invoice
                     otherwise transaction in authorization mode
                     */
-                    if ($this->getIpnFormData('payment_status')=='Completed') {
+                    if ($this->getIpnFormData('payment_status') == 'Completed') {
                        if (!$order->canInvoice()) {
                            //when order cannot create invoice, need to have some logic to take care
                            $order->addStatusToHistory(
-                                $order->getStatus(),//continue setting current order status
-                                Mage::helper('paypal')->__('Error in creating an invoice')
+                                $order->getStatus(), // keep order status/state
+                                Mage::helper('paypal')->__('Error in creating an invoice', true),
+                                $notified = true
                            );
 
                        } else {
                            //need to save transaction id
                            $order->getPayment()->setTransactionId($this->getIpnFormData('txn_id'));
                            //need to convert from order into invoice
-                           $convertor = Mage::getModel('sales/convert_order');
-                           $invoice = $convertor->toInvoice($order);
-                           foreach ($order->getAllItems() as $orderItem) {
-                               if (!$orderItem->getQtyToInvoice()) {
-                                   continue;
-                               }
-                               $item = $convertor->itemToInvoiceItem($orderItem);
-                               $item->setQty($orderItem->getQtyToInvoice());
-                               $invoice->addItem($item);
-                           }
-                           $invoice->collectTotals();
+                           $invoice = $order->prepareInvoice();
                            $invoice->register()->capture();
                            Mage::getModel('core/resource_transaction')
                                ->addObject($invoice)
                                ->addObject($invoice->getOrder())
                                ->save();
-                           $order->addStatusToHistory(
-                                'processing',//update order status to processing after creating an invoice
-                                Mage::helper('paypal')->__('Invoice '.$invoice->getIncrementId().' was created')
+                           $order->setState(
+                               Mage_Sales_Model_Order::STATE_PROCESSING, $newOrderStatus,
+                               Mage::helper('paypal')->__('Invoice #%s created', $invoice->getIncrementId()),
+                               $notified = true
                            );
                        }
                     } else {
-                        $order->addStatusToHistory(
-                                $order->getStatus(),
-                                Mage::helper('paypal')->__('Received IPN verification'));
+                        $order->setState(
+                            Mage_Sales_Model_Order::STATE_PROCESSING, $newOrderStatus,
+                            Mage::helper('paypal')->__('Received IPN verification'),
+                            $notified = true
+                        );
                     }
+                    $order->save();
+                    $order->sendNewOrderEmail();
 
                 }//else amount the same and there is order obj
                 //there are status added to order
-                $order->save();
             }
         }else{
             /*
@@ -407,11 +429,23 @@ class Mage_Paypal_Model_Standard extends Mage_Payment_Model_Method_Abstract
             } else {
                 $order->addStatusToHistory(
                     $order->getStatus(),//continue setting current order status
-                    Mage::helper('paypal')->__('Paypal IPN Invalid.'.$comment)
+                    Mage::helper('paypal')->__('Paypal IPN Invalid %s.', $comment)
                 );
                 $order->save();
             }
         }
     }
 
+    public function isInitializeNeeded()
+    {
+        return true;
+    }
+
+    public function initialize($paymentAction, $stateObject)
+    {
+        $state = Mage_Sales_Model_Order::STATE_PENDING_PAYMENT;
+        $stateObject->setState($state);
+        $stateObject->setStatus(Mage::getSingleton('sales/order_config')->getStateDefaultStatus($state));
+        $stateObject->setIsNotified(false);
+    }
 }

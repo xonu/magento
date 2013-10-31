@@ -12,15 +12,22 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Catalog
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
 /**
  * Product Url model
  *
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 
 class Mage_Catalog_Model_Product_Url extends Varien_Object
@@ -53,6 +60,19 @@ class Mage_Catalog_Model_Product_Url extends Varien_Object
     }
 
     /**
+     * 'no_selection' shouldn't be a valid image attribute value
+     * @param string $image
+     * @return string
+     */
+    protected function _validImage($image)
+    {
+        if($image == 'no_selection') {
+            $image = null;
+        }
+        return $image;
+    }
+
+    /**
      * Get product url
      *
      * @param  Mage_Catalog_Model_Product $product
@@ -60,53 +80,72 @@ class Mage_Catalog_Model_Product_Url extends Varien_Object
      */
     public function getProductUrl($product)
     {
-        if ($product->hasData('request_path') && $product->getRequestPath() != '') {
-            $url = $this->getUrlInstance()->getBaseUrl().$product->getRequestPath();
-            return $url;
-        }
-    
-        Varien_Profiler::start('REWRITE: '.__METHOD__);
-        $rewrite = $this->getUrlRewrite();
-        if ($product->getStoreId()) {
-            $rewrite->setStoreId($product->getStoreId());
-        }
-        $idPath = 'product/'.$product->getId();
-        if ($product->getCategoryId() && Mage::getStoreConfig('catalog/seo/product_use_categories')) {
-            $idPath .= '/'.$product->getCategoryId();
-        }
+        $cacheUrlKey = 'url_' . ($product->getCategoryId() && !$product->getDoNotUseCategoryId() ? $product->getCategoryId() : 'NONE');
+        $url = $product->getData($cacheUrlKey);
 
-        $rewrite->loadByIdPath($idPath);
+        if (is_null($url)) {
+            if ($product->getStoreId()) {
+                $this->getUrlInstance()->setStore($product->getStoreId());
+            }
+            if ($product->hasData('request_path') && $product->getRequestPath() != '') {
+                $this->setData($cacheUrlKey, $this->getUrlInstance()->getDirectUrl($product->getRequestPath()));
+                return $this->getData($cacheUrlKey);
+            }
 
-        if ($rewrite->getId()) {
-            $url = $this->getUrlInstance()->getBaseUrl().$rewrite->getRequestPath();
-        Varien_Profiler::stop('REWRITE: '.__METHOD__);
-            return $url;
-        }
-        Varien_Profiler::stop('REWRITE: '.__METHOD__);
-        Varien_Profiler::start('REGULAR: '.__METHOD__);
+            Varien_Profiler::start('REWRITE: '.__METHOD__);
 
-        $url = $this->getUrlInstance()->getUrl('catalog/product/view',
-            array(
-                'id'=>$product->getId(),
-                's'=>$product->getUrlKey(),
-                'category'=>$product->getCategoryId()
+            $rewrite = $this->getUrlRewrite();
+            if ($product->getStoreId()) {
+                $rewrite->setStoreId($product->getStoreId());
+            }
+
+            $idPath = 'product/'.$product->getId();
+            if ($product->getCategoryId() && !$product->getDoNotUseCategoryId() && Mage::getStoreConfig('catalog/seo/product_use_categories')) {
+                $idPath .= '/'.$product->getCategoryId();
+            }
+
+            $rewrite->loadByIdPath($idPath);
+//echo $this->getUrlInstance()->getBaseUrl();
+            if ($rewrite->getId()) {
+                $this->setData($cacheUrlKey, $this->getUrlInstance()->getDirectUrl($rewrite->getRequestPath()));
+                Varien_Profiler::stop('REWRITE: '.__METHOD__);
+                return $this->getData($cacheUrlKey);
+            }
+
+            Varien_Profiler::stop('REWRITE: '.__METHOD__);
+            Varien_Profiler::start('REGULAR: '.__METHOD__);
+
+            $url = $this->getUrlInstance()->getUrl('catalog/product/view', array(
+                'id'        => $product->getId(),
+                's'         => $product->getUrlKey(),
+                'category'  => $product->getCategoryId()
             ));
-        Varien_Profiler::stop('REGULAR: '.__METHOD__);
+
+            Varien_Profiler::stop('REGULAR: '.__METHOD__);
+        }
         return $url;
     }
 
     public function formatUrlKey($str)
     {
-    	$urlKey = preg_replace('#[^0-9a-z]+#i', '-', $str);
-    	$urlKey = strtolower($urlKey);
-    	$urlKey = trim($urlKey, '-');
+        $urlKey = preg_replace('#[^0-9a-z]+#i', '-', Mage::helper('catalog/product_url')->format($str));
+        $urlKey = strtolower($urlKey);
+        $urlKey = trim($urlKey, '-');
 
-    	return $urlKey;
+        return $urlKey;
     }
 
+    /**
+     * Retrieve Product Url path (with category if exists)
+     *
+     * @param Mage_Catalog_Model_Product $product
+     * @param Mage_Catalog_Model_Category $category
+     *
+     * @return string
+     */
     public function getUrlPath($product, $category=null)
     {
-        $path = $product->getUrlKey();
+        $path = $product->getData('url_path');
 
         if (is_null($category)) {
             /** @todo get default category */
@@ -115,70 +154,7 @@ class Mage_Catalog_Model_Product_Url extends Varien_Object
             Mage::throwException('Invalid category object supplied');
         }
 
-        $path = $category->getUrlPath().'/'.$path;
-
-        return $path;
-    }
-
-    public function getImageUrl($product)
-    {
-        $url = false;
-        if (!$product->getImage()) {
-            $url = Mage::getDesign()->getSkinUrl('images/no_image.jpg');
-        }
-        elseif ($attribute = $product->getResource()->getAttribute('image')) {
-            $url = $attribute->getFrontend()->getUrl($product);
-        }
-        return $url;
-    }
-
-    public function getCustomImageUrl($product, $size, $extension=null, $watermark=null)
-    {
-        $url = false;
-        if ($attribute = $product->getResource()->getAttribute('image')) {
-            $url = Mage::getModel('media/image')
-                    ->setConfig(Mage::getSingleton('catalog/product_media_config'))
-                    ->getSpecialLink($attribute, $size, $extension, $watermark);
-        }
-        return $url;
-    }
-
-    public function getSmallImageUrl($product)
-    {
-        $url = false;
-        if (!$product->getSmallImage()) {
-            $url = Mage::getDesign()->getSkinUrl('images/no_image.jpg');
-        }
-        elseif ($attribute = $product->getResource()->getAttribute('small_image')) {
-            $url = $attribute->getFrontend()->getUrl($product);
-        }
-        return $url;
-    }
-
-    public function getCustomSmallImageUrl($product, $size, $extension=null, $watermark=null)
-    {
-        $url = false;
-        if ($attribute = $product->getData('small_image')) {
-            try {
-                $url = Mage::getModel('media/image')
-                        ->setConfig(Mage::getSingleton('catalog/product_media_config'))
-                        ->getSpecialLink($attribute, $size, $extension, $watermark);
-            } catch (Exception $e) {
-                $url = false;
-            }
-        }
-        return $url;
-    }
-
-    public function getThumbnailUrl($product)
-    {
-        $url = false;
-        if (!$product->getThumbnail()) {
-            $url = Mage::getDesign()->getSkinUrl('images/no_image.jpg');
-        }
-        elseif ($attribute = $product->getResource()->getAttribute('thumbnail')) {
-            $url = $attribute->getFrontend()->getUrl($product);
-        }
-        return $url;
+        return Mage::helper('catalog/category')->getCategoryUrlPath($category->getUrlPath())
+            . '/' . $path;
     }
 }

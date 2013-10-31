@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Adminhtml
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -23,6 +29,7 @@
  *
  * @category   Mage
  * @package    Mage_Adminhtml
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Adminhtml_Block_Sales_Order_Create_Search_Grid extends Mage_Adminhtml_Block_Widget_Grid
 {
@@ -34,7 +41,7 @@ class Mage_Adminhtml_Block_Sales_Order_Create_Search_Grid extends Mage_Adminhtml
         $this->setRowClickCallback('order.productGridRowClick.bind(order)');
         $this->setCheckboxCheckCallback('order.productGridCheckboxCheck.bind(order)');
         $this->setRowInitCallback('order.productGridRowInit.bind(order)');
-        $this->setDefaultSort('id');
+        $this->setDefaultSort('entity_id');
         $this->setUseAjax(true);
         if ($this->getRequest()->getParam('collapse')) {
             $this->setIsCollapsed(true);
@@ -87,7 +94,9 @@ class Mage_Adminhtml_Block_Sales_Order_Create_Search_Grid extends Mage_Adminhtml
         	->addAttributeToSelect('name')
             ->addAttributeToSelect('sku')
             ->addAttributeToSelect('price')
-            ->addAttributeToFilter('type_id', Mage_Catalog_Model_Product_Type::TYPE_SIMPLE)
+            ->addAttributeToFilter('type_id', array_keys(
+                Mage::getConfig()->getNode('adminhtml/sales/order/create/available_product_types')->asArray()
+            ))
             ->addStoreFilter();
 
         if($this->helper('giftmessage/message')->getIsMessagesAvailable(
@@ -109,10 +118,10 @@ class Mage_Adminhtml_Block_Sales_Order_Create_Search_Grid extends Mage_Adminhtml
 
     protected function _prepareColumns()
     {
-        $this->addColumn('id', array(
+        $this->addColumn('entity_id', array(
             'header'    => Mage::helper('sales')->__('ID'),
             'sortable'  => true,
-            'width'     => '60px',
+            'width'     => '60',
             'index'     => 'entity_id'
         ));
         $this->addColumn('name', array(
@@ -121,7 +130,7 @@ class Mage_Adminhtml_Block_Sales_Order_Create_Search_Grid extends Mage_Adminhtml
         ));
         $this->addColumn('sku', array(
             'header'    => Mage::helper('sales')->__('SKU'),
-            'width'     => '80px',
+            'width'     => '80',
             'index'     => 'sku'
         ));
         $this->addColumn('price', array(
@@ -151,10 +160,11 @@ class Mage_Adminhtml_Block_Sales_Order_Create_Search_Grid extends Mage_Adminhtml
                 'header'    => Mage::helper('sales')->__('Gift'),
                 'renderer'  => 'adminhtml/sales_order_create_search_grid_renderer_giftmessage',
                 'field_name'=> 'giftmessage',
-                'inline_css'=> 'input-text',
+                'inline_css'=> 'checkbox',
                 'align'     => 'center',
                 'index'     => 'entity_id',
-                'values'    => $this->_getGiftmessageSaveModel()->getAllowQuoteItemsProducts()
+                'values'    => $this->_getGiftmessageSaveModel()->getAllowQuoteItemsProducts(),
+				'width'     => '1',
             ));
         }
 
@@ -168,7 +178,7 @@ class Mage_Adminhtml_Block_Sales_Order_Create_Search_Grid extends Mage_Adminhtml
             'type'      => 'input',
             'validate_class' => 'validate-number',
             'index'     => 'qty',
-            'width'     => '130px',
+            'width'     => '1',
         ));
 
         return parent::_prepareColumns();

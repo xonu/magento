@@ -5,27 +5,30 @@
  *
  * NOTICE OF LICENSE
  *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
+ * This source file is subject to the Academic Free License (AFL 3.0)
+ * that is bundled with this package in the file LICENSE_AFL.txt.
  * It is also available through the world-wide-web at this URL:
- * http://opensource.org/licenses/osl-3.0.php
+ * http://opensource.org/licenses/afl-3.0.php
  * If you did not receive a copy of the license and are unable to
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Review
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
- * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @license    http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
  */
 -->
 <config>
     <modules>
         <Mage_Review>
-            <version>0.7.1</version>
-            <depends>
-                <Mage_Core />
-            </depends>
+            <version>0.7.3</version>
         </Mage_Review>
     </modules>
     <global>
@@ -86,25 +89,25 @@
     </global>
     <adminhtml>
         <menu>
-            <catalog translate="title" module="catalog">
+            <catalog>
                 <children>
-                    <reviews_ratings translate="title" module="catalog">
+                    <reviews_ratings translate="title" module="review">
                         <title>Reviews and Ratings</title>
                         <children>
-                            <reviews translate="title" module="catalog">
+                            <reviews translate="title" module="review">
                                 <title>Customer Reviews</title>
                                 <children>
-                                    <pending translate="title" module="catalog">
+                                    <pending translate="title" module="review">
                                         <title>Pending Reviews</title>
                                         <action>adminhtml/catalog_product_review/pending/</action>
                                     </pending>
-                                    <all translate="title" module="catalog">
+                                    <all translate="title" module="review">
                                         <title>All Reviews</title>
                                         <action>adminhtml/catalog_product_review/</action>
                                     </all>
                                 </children>
                             </reviews>
-                            <ratings translate="title" module="catalog">
+                            <ratings translate="title" module="review">
                                 <title>Manage Ratings</title>
                                 <action>adminhtml/rating/</action>
                             </ratings>
@@ -144,10 +147,17 @@
         </translate>
           <layout>
               <updates>
-                  <review>
+                  <review module="Mage_Review">
                       <file>review.xml</file>
                   </review>
               </updates>
           </layout>
     </frontend>
+    <default>
+        <catalog>
+            <review>
+                <allow_guest>1</allow_guest>
+            </review>
+        </catalog>
+    </default>
 </config>

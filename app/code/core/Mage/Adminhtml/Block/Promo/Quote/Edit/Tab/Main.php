@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Adminhtml
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -24,6 +30,7 @@
  * @category    Mage
  * @category   Mage
  * @package    Mage_Adminhtml
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Adminhtml_Block_Promo_Quote_Edit_Tab_Main extends Mage_Adminhtml_Block_Widget_Form
 {
@@ -40,16 +47,16 @@ class Mage_Adminhtml_Block_Promo_Quote_Edit_Tab_Main extends Mage_Adminhtml_Bloc
         $fieldset = $form->addFieldset('base_fieldset', array('legend'=>Mage::helper('salesrule')->__('General Information')));
 
         if ($model->getId()) {
-        	$fieldset->addField('rule_id', 'hidden', array(
+            $fieldset->addField('rule_id', 'hidden', array(
                 'name' => 'rule_id',
             ));
         }
 
-    	$fieldset->addField('product_ids', 'hidden', array(
+        $fieldset->addField('product_ids', 'hidden', array(
             'name' => 'product_ids',
         ));
 
-    	$fieldset->addField('name', 'text', array(
+        $fieldset->addField('name', 'text', array(
             'name' => 'name',
             'label' => Mage::helper('salesrule')->__('Rule Name'),
             'title' => Mage::helper('salesrule')->__('Rule Name'),
@@ -63,7 +70,7 @@ class Mage_Adminhtml_Block_Promo_Quote_Edit_Tab_Main extends Mage_Adminhtml_Bloc
             'style' => 'width: 98%; height: 100px;',
         ));
 
-    	$fieldset->addField('is_active', 'select', array(
+        $fieldset->addField('is_active', 'select', array(
             'label'     => Mage::helper('salesrule')->__('Status'),
             'title'     => Mage::helper('salesrule')->__('Status'),
             'name'      => 'is_active',
@@ -97,15 +104,15 @@ class Mage_Adminhtml_Block_Promo_Quote_Edit_Tab_Main extends Mage_Adminhtml_Bloc
 
         $found = false;
         foreach ($customerGroups as $group) {
-        	if ($group['value']==0) {
-        		$found = true;
-        	}
+            if ($group['value']==0) {
+                $found = true;
+            }
         }
         if (!$found) {
-        	array_unshift($customerGroups, array('value'=>0, 'label'=>Mage::helper('salesrule')->__('NOT LOGGED IN')));
+            array_unshift($customerGroups, array('value'=>0, 'label'=>Mage::helper('salesrule')->__('NOT LOGGED IN')));
         }
 
-    	$fieldset->addField('customer_group_ids', 'multiselect', array(
+        $fieldset->addField('customer_group_ids', 'multiselect', array(
             'name'      => 'customer_group_ids[]',
             'label'     => Mage::helper('salesrule')->__('Customer Groups'),
             'title'     => Mage::helper('salesrule')->__('Customer Groups'),
@@ -128,18 +135,22 @@ class Mage_Adminhtml_Block_Promo_Quote_Edit_Tab_Main extends Mage_Adminhtml_Bloc
             'label' => Mage::helper('salesrule')->__('Uses per customer'),
         ));
 
-    	$fieldset->addField('from_date', 'date', array(
-            'name' => 'from_date',
-            'label' => Mage::helper('salesrule')->__('From Date'),
-            'title' => Mage::helper('salesrule')->__('From Date'),
-            'image' => $this->getSkinUrl('images/grid-cal.gif'),
+        $dateFormatIso = Mage::app()->getLocale()->getDateFormat(Mage_Core_Model_Locale::FORMAT_TYPE_SHORT);
+        $fieldset->addField('from_date', 'date', array(
+            'name'   => 'from_date',
+            'label'  => Mage::helper('salesrule')->__('From Date'),
+            'title'  => Mage::helper('salesrule')->__('From Date'),
+            'image'  => $this->getSkinUrl('images/grid-cal.gif'),
+            'input_format' => Varien_Date::DATE_INTERNAL_FORMAT,
+            'format'       => $dateFormatIso
         ));
-
-    	$fieldset->addField('to_date', 'date', array(
-            'name' => 'to_date',
-            'label' => Mage::helper('salesrule')->__('To Date'),
-            'title' => Mage::helper('salesrule')->__('To Date'),
-            'image' => $this->getSkinUrl('images/grid-cal.gif'),
+        $fieldset->addField('to_date', 'date', array(
+            'name'   => 'to_date',
+            'label'  => Mage::helper('salesrule')->__('To Date'),
+            'title'  => Mage::helper('salesrule')->__('To Date'),
+            'image'  => $this->getSkinUrl('images/grid-cal.gif'),
+            'input_format' => Varien_Date::DATE_INTERNAL_FORMAT,
+            'format'       => $dateFormatIso
         ));
 
         $fieldset->addField('sort_order', 'text', array(
@@ -147,7 +158,7 @@ class Mage_Adminhtml_Block_Promo_Quote_Edit_Tab_Main extends Mage_Adminhtml_Bloc
             'label' => Mage::helper('salesrule')->__('Priority'),
         ));
 
-		$fieldset->addField('is_rss', 'select', array(
+        $fieldset->addField('is_rss', 'select', array(
             'label'     => Mage::helper('salesrule')->__('Public In RSS Feed'),
             'title'     => Mage::helper('salesrule')->__('Public In RSS Feed'),
             'name'      => 'is_rss',

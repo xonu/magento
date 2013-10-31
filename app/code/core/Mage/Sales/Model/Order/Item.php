@@ -12,28 +12,38 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
- * @category   Mage
- * @package    Mage_Sales
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
- * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
+ * @category    Mage
+ * @package     Mage_Sales
+ * @copyright   Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @license     http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
 /**
  * Order Item Model
  *
- * @category   Mage
- * @package    Mage_Sales
+ * @category    Mage
+ * @package     Mage_Sales
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Sales_Model_Order_Item extends Mage_Core_Model_Abstract
 {
 
-    const STATUS_PENDING        = 1; // No items backordered, shipped, or returned (may have canceled qty)
+    const STATUS_PENDING        = 1; // No items shipped, invoiced, canceled, refunded nor backordered
     const STATUS_SHIPPED        = 2; // When qty ordered - [qty canceled + qty returned] = qty shipped
+    const STATUS_INVOICED       = 9; // When qty ordered - [qty canceled + qty returned] = qty invoiced
     const STATUS_BACKORDERED    = 3; // When qty ordered - [qty canceled + qty returned] = qty backordered
-    const STATUS_RETURNED       = 4; // When qty ordered = qty returned
     const STATUS_CANCELED       = 5; // When qty ordered = qty canceled
-    const STATUS_PARTIAL        = 6; // If [qty shipped + qty canceled + qty returned] < qty ordered
+    const STATUS_PARTIAL        = 6; // If [qty shipped or(max of two) qty invoiced + qty canceled + qty returned] < qty ordered
     const STATUS_MIXED          = 7; // All other combinations
+    const STATUS_REFUNDED       = 8; // When qty ordered = qty refunded
+
+    const STATUS_RETURNED       = 4; // When qty ordered = qty returned // not used at the moment
 
     protected $_eventPrefix = 'sales_order_item';
     protected $_eventObject = 'item';
@@ -45,7 +55,9 @@ class Mage_Sales_Model_Order_Item extends Mage_Core_Model_Abstract
      *
      * @var Mage_Sales_Model_Order
      */
-    protected $_order;
+    protected $_order       = null;
+    protected $_parentItem  = null;
+    protected $_children    = array();
 
     /**
      * Init resource model
@@ -53,6 +65,49 @@ class Mage_Sales_Model_Order_Item extends Mage_Core_Model_Abstract
     protected function _construct()
     {
         $this->_init('sales/order_item');
+    }
+
+    /**
+     * Prepare data before save
+     *
+     * @return Mage_Sales_Model_Order_Item
+     */
+    protected function _beforeSave()
+    {
+        parent::_beforeSave();
+        if (!$this->getOrderId()) {
+            $this->setOrderId($this->getOrder()->getId());
+        }
+        if ($this->getParentItem()) {
+            $this->setParentItemId($this->getParentItem()->getId());
+        }
+        return $this;
+    }
+
+    /**
+     * Set parent item
+     *
+     * @param   Mage_Sales_Model_Order_Item $item
+     * @return  Mage_Sales_Model_Order_Item
+     */
+    public function setParentItem($item)
+    {
+        if ($item) {
+            $this->_parentItem = $item;
+            $item->setHasChildren(true);
+            $item->addChildItem($this);
+        }
+        return $this;
+    }
+
+    /**
+     * Get parent item
+     *
+     * @return Mage_Sales_Model_Order_Item || null
+     */
+    public function getParentItem()
+    {
+        return $this->_parentItem;
     }
 
     /**
@@ -92,6 +147,10 @@ class Mage_Sales_Model_Order_Item extends Mage_Core_Model_Abstract
      */
     public function getQtyToShip()
     {
+        if ($this->isDummy(true)) {
+            return 0;
+        }
+
         $qty = $this->getQtyOrdered()
             - $this->getQtyShipped()
             - $this->getQtyRefunded()
@@ -106,6 +165,10 @@ class Mage_Sales_Model_Order_Item extends Mage_Core_Model_Abstract
      */
     public function getQtyToInvoice()
     {
+        if ($this->isDummy()) {
+            return 0;
+        }
+
         $qty = $this->getQtyOrdered()
             - $this->getQtyInvoiced()
             - $this->getQtyCanceled();
@@ -119,6 +182,10 @@ class Mage_Sales_Model_Order_Item extends Mage_Core_Model_Abstract
      */
     public function getQtyToRefund()
     {
+        if ($this->isDummy()) {
+            return 0;
+        }
+
         return max($this->getQtyInvoiced()-$this->getQtyRefunded(), 0);
     }
 
@@ -142,6 +209,7 @@ class Mage_Sales_Model_Order_Item extends Mage_Core_Model_Abstract
     public function setOrder(Mage_Sales_Model_Order $order)
     {
         $this->_order = $order;
+        $this->setOrderId($order->getId());
         return $this;
     }
 
@@ -152,7 +220,7 @@ class Mage_Sales_Model_Order_Item extends Mage_Core_Model_Abstract
      */
     public function getOrder()
     {
-        if (is_null($this->_order) && ($orderId = $this->getParentId())) {
+        if (is_null($this->_order) && ($orderId = $this->getOrderId())) {
             $order = Mage::getModel('sales/order');
             $order->load($orderId);
             $this->setOrder($order);
@@ -167,32 +235,43 @@ class Mage_Sales_Model_Order_Item extends Mage_Core_Model_Abstract
      */
     public function getStatusId()
     {
-        if (!$this->getQtyBackordered() && !$this->getQtyShipped()
-            && !$this->getQtyReturned() && !$this->getQtyCanceled()) {
+        $backordered = (float)$this->getQtyBackordered();
+        $canceled    = (float)$this->getQtyCanceled();
+        $invoiced    = (float)$this->getQtyInvoiced();
+        $ordered     = (float)$this->getQtyOrdered();
+        $refunded    = (float)$this->getQtyRefunded();
+        $shipped     = (float)$this->getQtyShipped();
+
+        $actuallyOrdered = $ordered - $canceled - $refunded;
+
+        if (!$invoiced && !$shipped && !$refunded && !$canceled && !$backordered) {
             return self::STATUS_PENDING;
         }
-        elseif ($this->getQtyShipped()
-            && ($this->getQtyOrdered()-($this->getQtyCanceled()+$this->getQtyReturned())) == $this->getQtyShipped()) {
+        if ($shipped && !$invoiced && ($actuallyOrdered == $shipped)) {
             return self::STATUS_SHIPPED;
         }
-        elseif ($this->getQtyBackordered()
-            && ($this->getQtyOrdered()-($this->getQtyCanceled()+$this->getQtyReturned())) == $this->getQtyBackordered()) {
+
+        if ($invoiced && !$shipped && ($actuallyOrdered == $invoiced)) {
+            return self::STATUS_INVOICED;
+        }
+
+        if ($backordered && ($actuallyOrdered == $backordered) ) {
             return self::STATUS_BACKORDERED;
         }
-        elseif ($this->getQtyReturned()
-            && $this->getQtyOrdered() == $this->getQtyReturned()) {
-            return self::STATUS_RETURNED;
+
+        if ($refunded && $ordered == $refunded) {
+            return self::STATUS_REFUNDED;
         }
-        elseif ($this->getQtyCanceled()
-            && $this->getQtyOrdered() == $this->getQtyCanceled()) {
+
+        if ($canceled && $ordered == $canceled) {
             return self::STATUS_CANCELED;
         }
-        elseif (($this->getQtyShipped()+$this->getQtyCanceled()+$this->getQtyReturned())<$this->getQtyOrdered() ) {
+
+        if (max($shipped, $invoiced) < $actuallyOrdered) {
             return self::STATUS_PARTIAL;
         }
-        else {
-            return self::STATUS_MIXED;
-        }
+
+        return self::STATUS_MIXED;
     }
 
     /**
@@ -247,8 +326,10 @@ class Mage_Sales_Model_Order_Item extends Mage_Core_Model_Abstract
                 //self::STATUS_PENDING        => Mage::helper('sales')->__('Pending'),
                 self::STATUS_PENDING        => Mage::helper('sales')->__('Ordered'),
                 self::STATUS_SHIPPED        => Mage::helper('sales')->__('Shipped'),
+                self::STATUS_INVOICED       => Mage::helper('sales')->__('Invoiced'),
                 self::STATUS_BACKORDERED    => Mage::helper('sales')->__('Backordered'),
                 self::STATUS_RETURNED       => Mage::helper('sales')->__('Returned'),
+                self::STATUS_REFUNDED       => Mage::helper('sales')->__('Refunded'),
                 self::STATUS_CANCELED       => Mage::helper('sales')->__('Canceled'),
                 self::STATUS_PARTIAL        => Mage::helper('sales')->__('Partial'),
                 self::STATUS_MIXED          => Mage::helper('sales')->__('Mixed'),
@@ -269,5 +350,157 @@ class Mage_Sales_Model_Order_Item extends Mage_Core_Model_Abstract
             return $this->getPrice();
         }
         return $price;
+    }
+
+    /**
+     * Set product options
+     *
+     * @param   array $options
+     * @return  Mage_Sales_Model_Order_Item
+     */
+    public function setProductOptions(array $options)
+    {
+        $this->setData('product_options', serialize($options));
+        return $this;
+    }
+
+    /**
+     * Get product options array
+     *
+     * @return array
+     */
+    public function getProductOptions()
+    {
+        if ($options = $this->_getData('product_options')) {
+            return unserialize($options);
+        }
+        return array();
+    }
+
+    /**
+     * Get product options array by code.
+     * If code is null return all options
+     *
+     * @param string $code
+     * @return array
+     */
+    public function getProductOptionByCode($code=null)
+    {
+        $options = $this->getProductOptions();
+        if (is_null($code)) {
+            return $options;
+        }
+        if (isset($options[$code])) {
+            return $options[$code];
+        }
+        return null;
+    }
+
+    /**
+     * Adds child item to this item
+     *
+     * @param Mage_Sales_Model_Order_Item $item
+     */
+    public function addChildItem($item)
+    {
+        if ($item instanceof Mage_Sales_Model_Order_Item) {
+            $this->_children[] = $item;
+        } else if (is_array($item)) {
+            $this->_children = array_merge($this->_children, $item);
+        }
+    }
+
+    /**
+     * Return chilgren items of this item
+     *
+     * @return array
+     */
+    public function getChildrenItems() {
+        return $this->_children;
+    }
+
+    /**
+     * Return checking of what calculation
+     * type was for this product
+     *
+     * @return bool
+     */
+    public function isChildrenCalculated() {
+        if ($parentItem = $this->getParentItem()) {
+            $options = $parentItem->getProductOptions();
+        } else {
+            $options = $this->getProductOptions();
+        }
+
+        if (isset($options['product_calculations']) &&
+             $options['product_calculations'] == Mage_Catalog_Model_Product_Type_Abstract::CALCULATE_CHILD) {
+                return true;
+        }
+        return false;
+    }
+
+    /**
+     * Return checking of what shipment
+     * type was for this product
+     *
+     * @return bool
+     */
+    public function isShipSeparately() {
+        if ($parentItem = $this->getParentItem()) {
+            $options = $parentItem->getProductOptions();
+        } else {
+            $options = $this->getProductOptions();
+        }
+
+        if (isset($options['shipment_type']) &&
+             $options['shipment_type'] == Mage_Catalog_Model_Product_Type_Abstract::SHIPMENT_SEPARATELY) {
+                return true;
+        }
+        return false;
+    }
+
+    /**
+     * This is Dummy item or not
+     * if $shipment is true then we checking this for shipping situation if not
+     * then we checking this for calculation
+     *
+     * @param bool $shipment
+     * @return bool
+     */
+    public function isDummy($shipment = false){
+        if ($shipment) {
+            if ($this->getHasChildren() && $this->isShipSeparately()) {
+                return true;
+            }
+
+            if ($this->getHasChildren() && !$this->isShipSeparately()) {
+                return false;
+            }
+
+            if ($this->getParentItem() && $this->isShipSeparately()) {
+                return false;
+            }
+
+            if ($this->getParentItem() && !$this->isShipSeparately()) {
+                return true;
+            }
+        } else {
+            if ($this->getHasChildren() && $this->isChildrenCalculated()) {
+                return true;
+            }
+
+            if ($this->getHasChildren() && !$this->isChildrenCalculated()) {
+                return false;
+            }
+
+            if ($this->getParentItem() && $this->isChildrenCalculated()) {
+                return false;
+            }
+
+            if ($this->getParentItem() && !$this->isChildrenCalculated()) {
+                return true;
+            }
+        }
+        return false;
     }
 }

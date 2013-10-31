@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Adminhtml
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -23,6 +29,7 @@
  *
  * @category   Mage
  * @package    Mage_Adminhtml
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Adminhtml_Block_Catalog_Product_Edit_Tab_Super_Config_Grid extends Mage_Adminhtml_Block_Widget_Grid
 {
@@ -97,6 +104,11 @@ class Mage_Adminhtml_Block_Catalog_Product_Edit_Tab_Super_Config_Grid extends Ma
 
     protected function _prepareCollection()
     {
+        $allowProductTypes = array();
+        foreach (Mage::getConfig()->getNode('global/catalog/product/type/configurable/allow_product_types')->children() as $type) {
+            $allowProductTypes[] = $type->getName();
+        }
+
         $product = $this->_getProduct();
         $collection = $product->getCollection()
             ->addAttributeToSelect('name')
@@ -105,7 +117,8 @@ class Mage_Adminhtml_Block_Catalog_Product_Edit_Tab_Super_Config_Grid extends Ma
             ->addAttributeToSelect('type_id')
             ->addAttributeToSelect('price')
             ->addFieldToFilter('attribute_set_id',$product->getAttributeSetId())
-            ->addFieldToFilter('type_id', Mage_Catalog_Model_Product_Type::TYPE_SIMPLE);
+            ->addFieldToFilter('type_id', $allowProductTypes)
+            ->addFilterByRequiredOptions();
 
         Mage::getModel('cataloginventory/stock_item')->addCatalogInventoryToProductCollection($collection);
 
@@ -144,7 +157,7 @@ class Mage_Adminhtml_Block_Catalog_Product_Edit_Tab_Super_Config_Grid extends Ma
             'attributes' => $attributes
         ));
 
-        $this->addColumn('id', array(
+        $this->addColumn('entity_id', array(
             'header'    => Mage::helper('catalog')->__('ID'),
             'sortable'  => true,
             'width'     => '60px',
@@ -183,18 +196,18 @@ class Mage_Adminhtml_Block_Catalog_Product_Edit_Tab_Super_Config_Grid extends Ma
             'index'     => 'price'
         ));
 
-        $this->addColumn('inventory', array(
+        $this->addColumn('is_saleable', array(
             'header'    => Mage::helper('catalog')->__('Inventory'),
             'renderer'  => 'adminhtml/catalog_product_edit_tab_super_config_grid_renderer_inventory',
             'filter'    => 'adminhtml/catalog_product_edit_tab_super_config_grid_filter_inventory',
-            'index'     => 'inventory_in_stock'
+            'index'     => 'is_saleable'
         ));
 
         foreach ($attributes as $attribute) {
             $productAttribute = $attribute->getProductAttribute();
             $productAttribute->getSource();
             $this->addColumn($productAttribute->getAttributeCode(), array(
-                'header'    => Mage::helper('catalog')->__($productAttribute->getFrontend()->getLabel()),
+                'header'    => $productAttribute->getFrontend()->getLabel(),
                 'index'     => $productAttribute->getAttributeCode(),
                 'type'      => $productAttribute->getSourceModel() ? 'options' : 'number',
                 'options'   => $productAttribute->getSourceModel() ? $this->getOptions($attribute) : ''

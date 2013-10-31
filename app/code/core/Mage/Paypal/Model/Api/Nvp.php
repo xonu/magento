@@ -12,18 +12,30 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Paypal
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
 /**
  * NVP API wrappers model
  *
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Paypal_Model_Api_Nvp extends Mage_Paypal_Model_Api_Abstract
 {
+    public function getPageStyle()
+    {
+        return $this->getConfigData('page_style');
+    }
+
     public function getApiEndpoint()
     {
         if (!$this->getData('api_endpoint')) {
@@ -74,14 +86,21 @@ class Mage_Paypal_Model_Api_Nvp extends Mage_Paypal_Model_Api_Abstract
         //------------------------------------------------------------------------------------------------------------------------------------
         // Construct the parameter string that describes the SetExpressCheckout API call
 
-
         $nvpArr = array(
             'PAYMENTACTION' => $this->getPaymentType(),
             'AMT'           => $this->getAmount(),
             'CURRENCYCODE'  => $this->getCurrencyCode(),
             'RETURNURL'     => $this->getReturnUrl(),
             'CANCELURL'     => $this->getCancelUrl(),
+            'INVNUM'        => $this->getInvNum()
         );
+
+        if ($this->getPageStyle()) {
+            $nvpArr = array_merge($nvpArr, array(
+                'PAGESTYLE' => $this->getPageStyle()
+            ));
+        }
+
         $this->setUserAction(self::USER_ACTION_CONTINUE);
 
         // for mark SetExpressCheckout API call
@@ -163,6 +182,7 @@ class Mage_Paypal_Model_Api_Nvp extends Mage_Paypal_Model_Api_Abstract
             $this->setAddressId($resArr['ADDRESSID']);
         }
         $this->setAddressStatus($resArr['ADDRESSSTATUS']);
+        $this->setPaypalPayerEmail($resArr['EMAIL']);
 
         if (!$this->getShippingAddress()) {
             $this->setShippingAddress(Mage::getModel('customer/address'));
@@ -229,13 +249,18 @@ class Mage_Paypal_Model_Api_Nvp extends Mage_Paypal_Model_Api_Abstract
     {
         $p = $this->getPayment();
         $a = $this->getBillingAddress();
-        $s = $this->getShippingAddress();
+        if ($this->getShippingAddress()) {
+            $s = $this->getShippingAddress();
+        } else {
+            $s = $a;
+        }
 
         $nvpArr = array(
             'PAYMENTACTION'  => $this->getPaymentType(),
             'AMT'            => $this->getAmount(),
             'CURRENCYCODE'   => $this->getCurrencyCode(),
             'BUTTONSOURCE'   => $this->getButtonSourceDp(),
+            'INVNUM'         => $this->getInvNum(),
 
             'CREDITCARDTYPE' => $this->getCcTypeName($p->getCcType()),
             'ACCT'           => $p->getCcNumber(),
@@ -246,7 +271,7 @@ class Mage_Paypal_Model_Api_Nvp extends Mage_Paypal_Model_Api_Abstract
             'LASTNAME'       => $a->getLastname(),
             'STREET'         => $a->getStreet(1),
             'CITY'           => $a->getCity(),
-            'STATE'          => $a->getRegionCode(),
+            'STATE'          => ($a->getRegionCode() ? $a->getRegionCode() : $a->getRegion()),
             'ZIP'            => $a->getPostcode(),
             'COUNTRYCODE'    => 'US', // only US supported for direct payment
             'EMAIL'          => $this->getEmail(),
@@ -302,6 +327,7 @@ class Mage_Paypal_Model_Api_Nvp extends Mage_Paypal_Model_Api_Abstract
             'AMT'             => $this->getAmount(),
             'CURRENCYCODE'    => $this->getCurrencyCode(),
             'NOTE'            => $this->getNote(),
+            'INVNUM'          => $this->getInvNum()
         );
 
         $resArr = $this->call('DoCapture', $nvpArr);

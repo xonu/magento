@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Adminhtml
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -23,6 +29,7 @@
  *
  * @category   Mage
  * @package    Mage_Adminhtml
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Adminhtml_Block_Report_Tag_Customer_Grid extends Mage_Adminhtml_Block_Widget_Grid
 {
@@ -49,7 +56,7 @@ class Mage_Adminhtml_Block_Report_Tag_Customer_Grid extends Mage_Adminhtml_Block
     protected function _prepareColumns()
     {
 
-        $this->addColumn('id', array(
+        $this->addColumn('entity_id', array(
             'header'    =>Mage::helper('reports')->__('ID'),
             'width'     => '50px',
             'align'     =>'right',
@@ -71,6 +78,26 @@ class Mage_Adminhtml_Block_Report_Tag_Customer_Grid extends Mage_Adminhtml_Block
             'width'     =>'50px',
             'align'     =>'right',
             'index'     =>'taged'
+        ));
+
+        $this->addColumn('action',
+            array(
+                'header'    => Mage::helper('catalog')->__('Action'),
+                'width'     => '100%',
+                'type'      => 'action',
+                'getter'    => 'getId',
+                'actions'   => array(
+                    array(
+                        'caption' => Mage::helper('catalog')->__('Show Tags'),
+                        'url'     => array(
+                            'base'=>'*/*/customerDetail'
+                        ),
+                        'field'   => 'id'
+                    )
+                ),
+                'filter'    => false,
+                'sortable'  => false,
+                'index'     => 'stores',
         ));
 
         $this->setFilterVisibility(false);

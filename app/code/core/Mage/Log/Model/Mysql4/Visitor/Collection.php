@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Log
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -23,6 +29,7 @@
  *
  * @category   Mage
  * @package    Mage_Log
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 
 class Mage_Log_Model_Mysql4_Visitor_Collection extends Varien_Data_Collection_Db
@@ -121,7 +128,7 @@ class Mage_Log_Model_Mysql4_Visitor_Collection extends Varien_Data_Collection_Db
     public function useOnlineFilter($minutes=null)
     {
         if (is_null($minutes)) {
-            $minutes = Mage_Log_Model_Visitor::ONLINE_MINUTES_INTERVAL;
+            $minutes = Mage_Log_Model_Visitor::getOnlineMinutesInterval();
         }
         $this->_select->from(array('visitor_table'=>$this->_visitorTable))
             //->joinLeft(array('url_table'=>$this->_urlTable), 'visitor_table.last_url_id=url_table.url_id')
@@ -251,17 +258,24 @@ class Mage_Log_Model_Mysql4_Visitor_Collection extends Varien_Data_Collection_Db
         return $range;
     }
 
-    public function addFieldToFilter($fieldName, $fieldValue=null)
+    /**
+     * Filter by customer ID, as 'type' field does not exist
+     *
+     * @param string $fieldName
+     * @param array $condition
+     * @return Mage_Log_Model_Mysql4_Visitor_Collection
+     */
+    public function addFieldToFilter($fieldName, $condition=null)
     {
-        if( $fieldName == 'type' ) {
-            if ($fieldValue == 'v') {
-                return parent::addFieldToFilter('customer_table.customer_id', array('null' => 1));
+        if ($fieldName == 'type' && is_array($condition) && isset($condition['eq'])) {
+            $fieldName = 'customer_id';
+            if ($condition['eq'] === Mage_Log_Model_Visitor::VISITOR_TYPE_VISITOR) {
+                $condition = array('null' => 1);
             } else {
-                return parent::addFieldToFilter('customer_table.customer_id', array('moreq' => 1));
+                $condition = array('moreq' => 1);
             }
-        } else {
-            return parent::addFieldToFilter($this->_getFieldMap($fieldName), $fieldValue);
         }
+        return parent::addFieldToFilter($this->_getFieldMap($fieldName), $condition);
     }
 
     protected function _getFieldMap($fieldName)

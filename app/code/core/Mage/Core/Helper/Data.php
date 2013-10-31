@@ -12,15 +12,22 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Core
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
 /**
  * Core data helper
  *
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Core_Helper_Data extends Mage_Core_Helper_Abstract
 {
@@ -31,39 +38,48 @@ class Mage_Core_Helper_Data extends Mage_Core_Helper_Abstract
      *
      * @param   float $value
      * @param   bool $format
+     * @param   bool $includeContainer
      * @return  mixed
      */
-    public static function currency($value, $format=true)
+    public static function currency($value, $format=true, $includeContainer = true)
     {
         try {
-            $value = Mage::app()->getStore()->convertPrice($value, $format);
+            $value = Mage::app()->getStore()->convertPrice($value, $format, $includeContainer);
         }
         catch (Exception $e){
             $value = $e->getMessage();
         }
-    	return $value;
+        return $value;
     }
 
     /**
      * Format and convert currency using current store option
      *
      * @param   float $value
+     * @param   bool $includeContainer
      * @return  string
      */
-    public function formatCurrency($value)
+    public function formatCurrency($value, $includeContainer = true)
     {
-        return $this->currency($value, true);
+        return $this->currency($value, true, $includeContainer);
     }
 
-    public function formatPrice($price)
+    /**
+     * Formats price
+     *
+     * @param float $price
+     * @param bool $includeContainer
+     * @return string
+     */
+    public function formatPrice($price, $includeContainer = true)
     {
-        return Mage::app()->getStore()->formatPrice($price);
+        return Mage::app()->getStore()->formatPrice($price, $includeContainer);
     }
 
     /**
      * Format date using current locale options
      *
-     * @param   date $date
+     * @param   date|Zend_Date|null $date in GMT timezone
      * @param   string $format
      * @param   bool $showTime
      * @return  string
@@ -76,13 +92,13 @@ class Mage_Core_Helper_Data extends Mage_Core_Helper_Abstract
             Mage_Core_Model_Locale::FORMAT_TYPE_SHORT   !==$format) {
             return $date;
         }
-        if ($date && !strtotime($date)) {
+        if (!($date instanceof Zend_Date) && $date && !strtotime($date)) {
             return '';
         }
         if (is_null($date)) {
-            $date = Mage::app()->getLocale()->date(time(), null, null, $showTime);
+            $date = Mage::app()->getLocale()->date(Mage::getSingleton('core/date')->gmtTimestamp(), null, null);
         }
-        else {
+        elseif (!$date instanceof Zend_Date) {
             $date = Mage::app()->getLocale()->date(strtotime($date), null, null, $showTime);
         }
 
@@ -99,7 +115,7 @@ class Mage_Core_Helper_Data extends Mage_Core_Helper_Abstract
     /**
      * Format time using current locale options
      *
-     * @param   date $date
+     * @param   date|Zend_Date|null $time
      * @param   string $format
      * @param   bool $showTime
      * @return  string
@@ -110,11 +126,14 @@ class Mage_Core_Helper_Data extends Mage_Core_Helper_Abstract
             Mage_Core_Model_Locale::FORMAT_TYPE_LONG    !==$format &&
             Mage_Core_Model_Locale::FORMAT_TYPE_MEDIUM  !==$format &&
             Mage_Core_Model_Locale::FORMAT_TYPE_SHORT   !==$format) {
-            return $date;
+            return $time;
         }
 
         if (is_null($time)) {
             $date = Mage::app()->getLocale()->date(time());
+        }
+        elseif ($time instanceof Zend_Date) {
+            $date = $time;
         }
         else {
             $date = Mage::app()->getLocale()->date(strtotime($time));
@@ -157,6 +176,7 @@ class Mage_Core_Helper_Data extends Mage_Core_Helper_Abstract
             return $data;
         }
         $result = trim($this->_getCrypt()->decrypt(base64_decode((string)$data)));
+        $result = str_replace("\x0", '', $result);
         return $result;
     }
 
@@ -181,11 +201,11 @@ class Mage_Core_Helper_Data extends Mage_Core_Helper_Abstract
         if (is_null($chars)) {
             $chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
         }
-		mt_srand(10000000*(double)microtime());
-		for ($i = 0, $str = '', $lc = strlen($chars)-1; $i < $len; $i++) {
-			$str .= $chars[mt_rand(0, $lc)];
-		}
-		return $str;
+        mt_srand(10000000*(double)microtime());
+        for ($i = 0, $str = '', $lc = strlen($chars)-1; $i < $len; $i++) {
+            $str .= $chars[mt_rand(0, $lc)];
+        }
+        return $str;
     }
 
     /**
@@ -289,4 +309,232 @@ class Mage_Core_Helper_Data extends Mage_Core_Helper_Abstract
         return $types;
     }
 
+    /**
+     * Copy data from object|array to object|array containing fields
+     * from fieldset matching an aspect.
+     *
+     * Contents of $aspect are a field name in target object or array.
+     * If '*' - will be used the same name as in the source object or array.
+     *
+     * @param string $fieldset
+     * @param string $aspect
+     * @param array|Varien_Object $source
+     * @param array|Varien_Object $target
+     * @param string $root
+     * @return boolean
+     */
+    public function copyFieldset($fieldset, $aspect, $source, $target, $root='global')
+    {
+        if (!(is_array($source) || $source instanceof Varien_Object)
+            || !(is_array($target) || $target instanceof Varien_Object)) {
+
+            return false;
+        }
+        $fields = Mage::getConfig()->getFieldset($fieldset, $root);
+        if (!$fields) {
+            return false;
+        }
+
+        $sourceIsArray = is_array($source);
+        $targetIsArray = is_array($target);
+
+        $result = false;
+        foreach ($fields as $code=>$node) {
+            if (empty($node->$aspect)) {
+                continue;
+            }
+
+            if ($sourceIsArray) {
+                $value = isset($source[$code]) ? $source[$code] : null;
+            } else {
+                $value = $source->getDataUsingMethod($code);
+            }
+
+            $targetCode = (string)$node->$aspect;
+            $targetCode = $targetCode == '*' ? $code : $targetCode;
+
+            if ($targetIsArray) {
+                $target[$targetCode] = $value;
+            } else {
+                $target->setDataUsingMethod($targetCode, $value);
+            }
+
+            $result = true;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Decorate a plain array of arrays or objects
+     * The array actually can be an object with Iterator interface
+     *
+     * Keys with prefix_* will be set:
+     * *_is_first - if the element is first
+     * *_is_odd / *_is_even - for odd/even elements
+     * *_is_last - if the element is last
+     *
+     * The respective key/attribute will be set to element, depending on object it is or array.
+     * Varien_Object is supported.
+     *
+     * $forceSetAll true will cause to set all possible values for all elements.
+     * When false (default), only non-empty values will be set.
+     *
+     * @param mixed $array
+     * @param string $prefix
+     * @param bool $forceSetAll
+     * @return mixed
+     */
+    public function decorateArray($array, $prefix = 'decorated_', $forceSetAll = false)
+    {
+        // check if array or an object to be iterated given
+        if (!(is_array($array) || is_object($array))) {
+            return $array;
+        }
+
+        $keyIsFirst = "{$prefix}is_first";
+        $keyIsOdd   = "{$prefix}is_odd";
+        $keyIsEven  = "{$prefix}is_even";
+        $keyIsLast  = "{$prefix}is_last";
+
+        $count  = count($array); // this will force Iterator to load
+        $i      = 0;
+        $isEven = false;
+        foreach ($array as $key => $element) {
+            if (is_object($element)) {
+                $this->_decorateArrayObject($element, $keyIsFirst, (0 === $i), $forceSetAll || (0 === $i));
+                $this->_decorateArrayObject($element, $keyIsOdd, !$isEven, $forceSetAll || !$isEven);
+                $this->_decorateArrayObject($element, $keyIsEven, $isEven, $forceSetAll || $isEven);
+                $isEven = !$isEven;
+                $i++;
+                $this->_decorateArrayObject($element, $keyIsLast, ($i === $count), $forceSetAll || ($i === $count));
+            }
+            elseif (is_array($element)) {
+                if ($forceSetAll || (0 === $i)) {
+                    $array[$key][$keyIsFirst] = (0 === $i);
+                }
+                if ($forceSetAll || !$isEven) {
+                    $array[$key][$keyIsOdd] = !$isEven;
+                }
+                if ($forceSetAll || $isEven) {
+                    $array[$key][$keyIsEven] = $isEven;
+                }
+                $isEven = !$isEven;
+                $i++;
+                if ($forceSetAll || ($i === $count)) {
+                    $array[$key][$keyIsLast] = ($i === $count);
+                }
+            }
+        }
+
+        return $array;
+    }
+
+    private function _decorateArrayObject($element, $key, $value, $dontSkip) {
+        if ($dontSkip) {
+            if ($element instanceof Varien_Object) {
+                $element->setData($key, $value);
+            }
+            else {
+                $element->$key = $value;
+            }
+        }
+    }
+
+    /**
+     * Transform an assoc array to SimpleXMLElement object
+     * Array has some limitations. Appropriate exceptions will be thrown
+     *
+     * @param array $array
+     * @param string $rootName
+     * @return SimpleXMLElement
+     * @throws Exception
+     */
+    public function assocToXml(array $array, $rootName = '_')
+    {
+        if (empty($rootName) || is_numeric($rootName)) {
+            throw new Exception('Root element must not be empty or numeric');
+        }
+
+        $xmlstr = <<<XML
+<?xml version='1.0' encoding='UTF-8' standalone='yes'?>
+<$rootName></$rootName>
+XML;
+        $xml = new SimpleXMLElement($xmlstr);
+        foreach ($array as $key => $value) {
+            if (is_numeric($key)) {
+                throw new Exception('Array root keys must not be numeric.');
+            }
+        }
+        return self::_assocToXml($array, $rootName, $xml);
+    }
+
+    /**
+     * Function, that actually recursively transforms array to xml
+     *
+     * @param array $array
+     * @param string $rootName
+     * @param SimpleXMLElement $xml
+     * @return SimpleXMLElement
+     * @throws Exception
+     */
+    private function _assocToXml(array $array, $rootName, SimpleXMLElement &$xml)
+    {
+        $hasNumericKey = false;
+        $hasStringKey  = false;
+        foreach ($array as $key => $value) {
+            if (!is_array($value)) {
+                if (is_string($key)) {
+                    if ($key === $rootName) {
+                        throw new Exception('Associative key must not be the same as its parent associative key.');
+                    }
+                    $hasStringKey = true;
+                    $xml->$key = $value;
+                }
+                elseif (is_int($key)) {
+                    $hasNumericKey = true;
+                    $xml->{$rootName}[$key] = $value;
+                }
+            }
+            else {
+                self::_assocToXml($value, $key, $xml->$key);
+            }
+        }
+        if ($hasNumericKey && $hasStringKey) {
+            throw new Exception('Associative and numeric keys must not be mixed at one level.');
+        }
+        return $xml;
+    }
+
+    /**
+     * Transform SimpleXMLElement to associative array
+     * SimpleXMLElement must be conform structure, generated by assocToXml()
+     *
+     * @param SimpleXMLElement $xml
+     * @return array
+     */
+    public function xmlToAssoc(SimpleXMLElement $xml)
+    {
+        $array = array();
+        foreach ($xml as $key => $value) {
+            if (isset($value->$key)) {
+                $i = 0;
+                foreach ($value->$key as $v) {
+                    $array[$key][$i++] = (string)$v;
+                }
+            }
+            else {
+                // try to transform it into string value, trimming spaces between elements
+                $array[$key] = trim((string)$value);
+                if (empty($array[$key]) && !empty($value)) {
+                    $array[$key] = self::xmlToAssoc($value);
+                }
+                // untrim strings values
+                else {
+                    $array[$key] = (string)$value;
+                }
+            }
+        }
+        return $array;
+    }
 }

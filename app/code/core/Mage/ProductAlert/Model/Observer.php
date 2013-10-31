@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_ProductAlert
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -24,6 +30,7 @@
  *
  * @category   Mage
  * @package    Mage_ProductAlert
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_productAlert_Model_Observer
 {
@@ -172,11 +179,12 @@ class Mage_productAlert_Model_Observer
     protected function _processStock(Mage_ProductAlert_Model_Email $email)
     {
         $email->setType('stock');
+
         foreach ($this->_getWebsites() as $website) {
             if (!$website->getDefaultGroup() || !$website->getDefaultGroup()->getDefaultStore()) {
                 continue;
             }
-            if (!Mage::getStoreConfig(self::XML_PATH_PRICE_ALLOW, $website->getDefaultGroup()->getDefaultStore()->getId())) {
+            if (!Mage::getStoreConfig(self::XML_PATH_STOCK_ALLOW, $website->getDefaultGroup()->getDefaultStore()->getId())) {
                 continue;
             }
             try {
@@ -228,6 +236,7 @@ class Mage_productAlert_Model_Observer
                     $this->_errors[] = $e->getMessage();
                 }
             }
+
             if ($previousCustomer) {
                 try {
                     $email->send();
@@ -237,6 +246,7 @@ class Mage_productAlert_Model_Observer
                 }
             }
         }
+
         return $this;
     }
 
@@ -252,6 +262,10 @@ class Mage_productAlert_Model_Observer
                 return $this;
             }
 
+            $translate = Mage::getSingleton('core/translate');
+            /* @var $translate Mage_Core_Model_Translate */
+            $translate->setTranslateInline(false);
+
             $emailTemplate = Mage::getModel('core/email_template');
             /* @var $emailTemplate Mage_Core_Model_Email_Template */
             $emailTemplate->setDesignConfig(array('area'  => 'backend'))
@@ -263,6 +277,7 @@ class Mage_productAlert_Model_Observer
                     array('warnings' => join("\n", $this->_errors))
                 );
 
+            $translate->setTranslateInline(true);
             $this->_errors[] = array();
         }
         return $this;
@@ -272,7 +287,6 @@ class Mage_productAlert_Model_Observer
     {
         $email = Mage::getModel('productalert/email');
         /* @var $email Mage_ProductAlert_Model_Email */
-
         $this->_processPrice($email);
         $this->_processStock($email);
         $this->_sendErrorEmail();

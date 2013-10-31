@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Eav
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -61,14 +67,16 @@ class Mage_Eav_Model_Mysql4_Entity_Attribute extends Mage_Core_Model_Mysql4_Abst
      */
     public function loadByCode(Mage_Core_Model_Abstract $object, $entityTypeId, $code)
     {
-        $this->_loadTypeAttributes($entityTypeId);
-        $data = isset(self::$_entityAttributes[$entityTypeId][$code]) ? self::$_entityAttributes[$entityTypeId][$code] : array();
-        if (!$data) {
-            return false;
+        $select = $this->_getLoadSelect('attribute_code', $code, $object)
+            ->where('entity_type_id=?', $entityTypeId);
+        $data = $this->_getReadAdapter()->fetchRow($select);
+
+        if ($data) {
+            $object->setData($data);
+            $this->_afterLoad($object);
+            return true;
         }
-        $object->setData($data);
-        $this->_afterLoad($object);
-        return true;
+        return false;
     }
 
     /**
@@ -152,8 +160,14 @@ class Mage_Eav_Model_Mysql4_Entity_Attribute extends Mage_Core_Model_Mysql4_Abst
             }
             $object->setFrontendLabel($frontendLabel[0]);
 
+            if ($object->getData('modulePrefix')) {
+                $str = $object->getData('modulePrefix') . Mage_Core_Model_Translate::SCOPE_SEPARATOR . $frontendLabel[0];
+            }
+            else {
+                $str = $frontendLabel[0];
+            }
             Mage::getModel('core/translate_string')
-                ->setString($frontendLabel[0])
+                ->setString($str)
                 ->setTranslate($frontendLabel[0])
                 ->setStoreTranslations($frontendLabel)
                 ->save();
@@ -289,7 +303,7 @@ class Mage_Eav_Model_Mysql4_Entity_Attribute extends Mage_Core_Model_Mysql4_Abst
 
                     $write->delete($optionValueTable, $write->quoteInto('option_id=?', $intOptionId));
                     foreach ($stores as $store) {
-                        if (!empty($values[$store->getId()])) {
+                        if (isset($values[$store->getId()]) && (!empty($values[$store->getId()]) || $values[$store->getId()] == "0")) {
                             $data = array(
                                 'option_id' => $intOptionId,
                                 'store_id'  => $store->getId(),
@@ -325,5 +339,23 @@ class Mage_Eav_Model_Mysql4_Entity_Attribute extends Mage_Core_Model_Mysql4_Abst
         }
         $valueCount = $read->fetchOne($select);
         return $valueCount;
+    }
+
+    /**
+     * Return attribute id
+     *
+     * @param string $entityType
+     * @param string $code
+     * @return int
+     */
+    public function getIdByCode($entityType, $code)
+    {
+        $select = $this->_getReadAdapter()->select()
+            ->from(array('a'=>$this->getTable('eav/attribute')), array('a.attribute_id'))
+            ->join(array('t'=>$this->getTable('eav/entity_type')), 'a.entity_type_id = t.entity_type_id', array())
+            ->where('t.entity_type_code = ?', $entityType)
+            ->where('a.attribute_code = ?', $code);
+
+        return $this->_getReadAdapter()->fetchOne($select);
     }
 }

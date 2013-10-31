@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Core
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -23,6 +29,7 @@
  *
  * @category   Mage
  * @package    Mage_Core
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Core_Model_Mysql4_Translate extends Mage_Core_Model_Mysql4_Abstract
 {
@@ -92,11 +99,10 @@ class Mage_Core_Model_Mysql4_Translate extends Mage_Core_Model_Mysql4_Abstract
 
         $select = $read->select()
             ->from($this->getMainTable())
-            ->where('string in (?)', $strings)
+            ->where('string in (:tr_strings)')
             ->where('store_id = ?', $storeId);
-
         $result = array();
-        foreach ($read->fetchAll($select) as $row) {
+        foreach ($read->fetchAll($select, array('tr_strings'=>$read->quote($strings))) as $row) {
             $result[$row['string']] = $row['translate'];
         }
 

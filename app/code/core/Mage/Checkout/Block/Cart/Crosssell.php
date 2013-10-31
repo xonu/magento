@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Checkout
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -23,10 +29,11 @@
  *
  * @category   Mage
  * @package    Mage_Checkout
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Checkout_Block_Cart_Crosssell extends Mage_Catalog_Block_Product_Abstract
 {
-    protected $_maxItemCount = 3;
+    protected $_maxItemCount = 4;
 
     public function getItems()
     {
@@ -44,7 +51,7 @@ class Mage_Checkout_Block_Cart_Crosssell extends Mage_Catalog_Block_Product_Abst
 
                 foreach ($collection as $item) {
                     $ninProductIds[] = $item->getId();
-                	$items[] = $item;
+                    $items[] = $item;
                 }
             }
 
@@ -56,7 +63,7 @@ class Mage_Checkout_Block_Cart_Crosssell extends Mage_Catalog_Block_Product_Abst
                     ->setRandomOrder()
                     ->load();
                 foreach ($collection as $item) {
-                	$items[] = $item;
+                    $items[] = $item;
                 }
             }
 
@@ -64,7 +71,6 @@ class Mage_Checkout_Block_Cart_Crosssell extends Mage_Catalog_Block_Product_Abst
         }
         return $items;
     }
-
     public function getItemCount()
     {
         return count($this->getItems());
@@ -76,12 +82,9 @@ class Mage_Checkout_Block_Cart_Crosssell extends Mage_Catalog_Block_Product_Abst
         if (is_null($ids)) {
             $ids = array();
             foreach ($this->getQuote()->getAllItems() as $item) {
-            	if ($product = $item->getProduct()) {
-            	    $ids[] = $product->getId();
-            	    if ($superProduct = $product->getSuperProduct()) {
-            	        $ids[] = $superProduct->getId();
-            	    }
-            	}
+                if ($product = $item->getProduct()) {
+                    $ids[] = $product->getId();
+                }
             }
             $this->setData('_cart_product_ids', $ids);
         }
@@ -98,21 +101,22 @@ class Mage_Checkout_Block_Cart_Crosssell extends Mage_Catalog_Block_Product_Abst
         return Mage::getSingleton('checkout/session')->getQuote();
     }
 
+    /**
+     * Get crosssell products collection
+     *
+     * @return Mage_Catalog_Model_Resource_Eav_Mysql4_Product_Link_Product_Collection
+     */
     protected function _getCollection()
     {
         $collection = Mage::getModel('catalog/product_link')->useCrossSellLinks()
             ->getProductCollection()
-			->addAttributeToSelect('name')
-            ->addAttributeToSelect('price')
-            ->addAttributeToSelect('image')
-            ->addAttributeToSelect('thumbnail')
             ->setStoreId(Mage::app()->getStore()->getId())
             ->addStoreFilter()
             ->setPageSize($this->_maxItemCount);
+        $this->_addProductAttributesAndPrices($collection);
 
         Mage::getSingleton('catalog/product_status')->addSaleableFilterToCollection($collection);
         Mage::getSingleton('catalog/product_visibility')->addVisibleInCatalogFilterToCollection($collection);
-        
         Mage::getSingleton('cataloginventory/stock')->addInStockFilterToCollection($collection);
 
         return $collection;

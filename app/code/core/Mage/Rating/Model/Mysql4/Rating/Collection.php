@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Rating
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -23,6 +29,7 @@
  *
  * @category   Mage
  * @package    Mage_Rating
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Rating_Model_Mysql4_Rating_Collection extends Mage_Core_Model_Mysql4_Collection_Abstract
 {
@@ -137,6 +144,8 @@ class Mage_Rating_Model_Mysql4_Rating_Collection extends Mage_Core_Model_Mysql4_
                 INNER JOIN
                     {$this->getTable('rating/rating_store')} AS rst
                     ON rst.rating_id = {$this->getTable('rating_vote')}.rating_id AND rst.store_id = ". (int) $storeId . "
+                INNER JOIN
+                    {$this->getTable('review/review')} ON {$this->getTable('review/review_store')}.review_id={$this->getTable('review/review')}.review_id AND {$this->getTable('review/review')}.status_id=1
                 WHERE
                     {$this->getConnection()->quoteInto($this->getTable('rating_vote').'.rating_id IN (?)', $arrRatingId)}
                     AND {$this->getConnection()->quoteInto($this->getTable('rating_vote').'.entity_pk_value=?', $entityPkValue)}

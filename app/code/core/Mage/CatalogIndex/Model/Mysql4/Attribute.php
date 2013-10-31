@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_CatalogIndex
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -22,6 +28,7 @@
 /**
  * Attribute index resource model
  *
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_CatalogIndex_Model_Mysql4_Attribute extends Mage_CatalogIndex_Model_Mysql4_Abstract
 {
@@ -45,19 +52,24 @@ class Mage_CatalogIndex_Model_Mysql4_Attribute extends Mage_CatalogIndex_Model_M
         return $this->_getReadAdapter()->fetchCol($select);
     }
 
-    public function getCount($attribute, $entityFilter)
+    public function getCount($attribute, $entitySelect)
     {
-        $select = $this->_getReadAdapter()->select();
+        $select = clone $entitySelect;
+        $select->reset(Zend_Db_Select::COLUMNS);
+        $select->reset(Zend_Db_Select::ORDER);
+        $select->reset(Zend_Db_Select::LIMIT_COUNT);
+        $select->reset(Zend_Db_Select::LIMIT_OFFSET);
 
-        $fields = array('count'=>'COUNT(DISTINCT entity_id)', 'value');
+        $fields = array('count'=>'COUNT(DISTINCT index.entity_id)', 'index.value');
 
-        $select
-            ->from($this->getMainTable(), $fields)
-            ->where('entity_id in (?)', $entityFilter)
-            ->where('store_id = ?', $this->getStoreId())
-            ->where('attribute_id = ?', $attribute->getId())
-            ->group('value');
+        $select->from('', $fields)
+            ->join(array('index'=>$this->getMainTable()), 'index.entity_id=e.entity_id', array())
+            ->where('index.store_id = ?', $this->getStoreId())
+            ->where('index.attribute_id = ?', $attribute->getId())
+            ->group('index.value');
 
+        $select = $select->__toString();
+//        $alias = $this->_getReadAdapter()->quoteTableAs($this->getMainTable(), 'index');
         $result = $this->_getReadAdapter()->fetchAll($select);
 
         $counts = array();
@@ -65,5 +77,19 @@ class Mage_CatalogIndex_Model_Mysql4_Attribute extends Mage_CatalogIndex_Model_M
             $counts[$row['value']] = $row['count'];
         }
         return $counts;
+    }
+
+    public function applyFilterToCollection($collection, $attribute, $value)
+    {
+        $alias = 'attr_index_'.$attribute->getId();
+        $collection->getSelect()->join(
+            array($alias => $this->getMainTable()),
+            $alias.'.entity_id=e.entity_id',
+            array()
+        )
+        ->where($alias.'.store_id = ?', $this->getStoreId())
+        ->where($alias.'.attribute_id = ?', $attribute->getId())
+        ->where($alias.'.value = ?', $value);
+        return $this;
     }
 }

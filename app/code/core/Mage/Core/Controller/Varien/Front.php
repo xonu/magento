@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Core
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -31,6 +37,8 @@ class Mage_Core_Controller_Varien_Front extends Varien_Object
     protected $_routers = array();
 
     protected $_urlCache = array();
+
+    const XML_STORE_ROUTERS_PATH = 'web/routers';
 
     public function setDefault($key, $value=null)
     {
@@ -106,24 +114,42 @@ class Mage_Core_Controller_Varien_Front extends Varien_Object
 
         Varien_Profiler::start('ctrl/init');
 
-        Mage::getModel('core/url_rewrite')->rewrite();
+        $routersInfo = Mage::app()->getStore()->getConfig(self::XML_STORE_ROUTERS_PATH);
 
-        // init admin modules router
-        $admin = new Mage_Core_Controller_Varien_Router_Admin();
-        $admin->collectRoutes('admin', 'admin');
-        $this->addRouter('admin', $admin);
-
-        // init standard frontend modules router
-        $standard = new Mage_Core_Controller_Varien_Router_Standard();
-        $standard->collectRoutes('frontend', 'standard');
-        $this->addRouter('standard', $standard);
-
-        // init custom routers
+        foreach ($routersInfo as $routerCode => $routerInfo) {
+            if (isset($routerInfo['disabled']) && $routerInfo['disabled']) {
+            	continue;
+            }
+            if (isset($routerInfo['class'])) {
+            	$router = new $routerInfo['class'];
+            	if (isset($routerInfo['area'])) {
+            		$router->collectRoutes($routerInfo['area'], $routerCode);
+            	}
+            	$this->addRouter($routerCode, $router);
+            }
+        }
         Mage::dispatchEvent('controller_front_init_routers', array('front'=>$this));
 
-        // init default router (articles and 404)
+        // Add default router at the last
         $default = new Mage_Core_Controller_Varien_Router_Default();
         $this->addRouter('default', $default);
+
+//         init admin modules router
+//        $admin = new Mage_Core_Controller_Varien_Router_Admin();
+//        $admin->collectRoutes('admin', 'admin');
+//        $this->addRouter('admin', $admin);
+//
+//         init standard frontend modules router
+//        $standard = new Mage_Core_Controller_Varien_Router_Standard();
+//        $standard->collectRoutes('frontend', 'standard');
+//        $this->addRouter('standard', $standard);
+//
+//         init custom routers
+//        Mage::dispatchEvent('controller_front_init_routers', array('front'=>$this));
+//
+//         init default router (articles and 404)
+//        $default = new Mage_Core_Controller_Varien_Router_Default();
+//        $this->addRouter('default', $default);
 
         Varien_Profiler::stop('ctrl/init');
 
@@ -137,6 +163,7 @@ class Mage_Core_Controller_Varien_Front extends Varien_Object
         $request = $this->getRequest();
         $request->setPathInfo()->setDispatched(false);
 
+        Mage::getModel('core/url_rewrite')->rewrite();
         $this->rewrite();
 
         Varien_Profiler::stop('app/init');
@@ -148,6 +175,9 @@ class Mage_Core_Controller_Varien_Front extends Varien_Object
                     break;
                 }
             }
+        }
+        if ($i>100) {
+            Mage::throwException('Front controller reached 100 router match iterations');
         }
 
         Varien_Profiler::stop('ctrl/dispatch');

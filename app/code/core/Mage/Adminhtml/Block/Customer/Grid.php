@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Adminhtml
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -23,6 +29,7 @@
  *
  * @category   Mage
  * @package    Mage_Adminhtml
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Adminhtml_Block_Customer_Grid extends Mage_Adminhtml_Block_Widget_Grid
 {
@@ -32,24 +39,20 @@ class Mage_Adminhtml_Block_Customer_Grid extends Mage_Adminhtml_Block_Widget_Gri
         parent::__construct();
         $this->setId('customerGrid');
         $this->setUseAjax(true);
-        $this->setDefaultSort('id');
+        $this->setDefaultSort('entity_id');
     }
 
     protected function _prepareCollection()
     {
         $collection = Mage::getResourceModel('customer/customer_collection')
-            ->addAttributeToSelect('firstname')
-            ->addAttributeToSelect('lastname')
-            ->addExpressionAttributeToSelect('name',
-                'CONCAT({{firstname}}, " ", {{lastname}})',
-                array('firstname', 'lastname'))
+            ->addNameToSelect()
             ->addAttributeToSelect('email')
             ->addAttributeToSelect('created_at')
             ->addAttributeToSelect('group_id')
             ->joinAttribute('billing_postcode', 'customer_address/postcode', 'default_billing', null, 'left')
             ->joinAttribute('billing_city', 'customer_address/city', 'default_billing', null, 'left')
             ->joinAttribute('billing_telephone', 'customer_address/telephone', 'default_billing', null, 'left')
-            ->joinAttribute('billing_regione', 'customer_address/region', 'default_billing', null, 'left')
+            ->joinAttribute('billing_region', 'customer_address/region', 'default_billing', null, 'left')
             ->joinAttribute('billing_country_id', 'customer_address/country_id', 'default_billing', null, 'left');
 
         $this->setCollection($collection);
@@ -59,10 +62,11 @@ class Mage_Adminhtml_Block_Customer_Grid extends Mage_Adminhtml_Block_Widget_Gri
 
     protected function _prepareColumns()
     {
-        $this->addColumn('id', array(
+        $this->addColumn('entity_id', array(
             'header'    => Mage::helper('customer')->__('ID'),
             'width'     => '50px',
-            'index'     => 'entity_id'
+            'index'     => 'entity_id',
+            'type'  => 'number',
         ));
         /*$this->addColumn('firstname', array(
             'header'    => Mage::helper('customer')->__('First Name'),
@@ -114,15 +118,15 @@ class Mage_Adminhtml_Block_Customer_Grid extends Mage_Adminhtml_Block_Widget_Gri
             'index'     => 'billing_country_id',
         ));
 
-        $this->addColumn('billing_regione', array(
+        $this->addColumn('billing_region', array(
             'header'    => Mage::helper('customer')->__('State/Province'),
             'width'     => '100',
-            'index'     => 'billing_regione',
+            'index'     => 'billing_region',
         ));
 
         $this->addColumn('customer_since', array(
             'header'    => Mage::helper('customer')->__('Customer Since'),
-            'type'      => 'date',
+            'type'      => 'datetime',
             'align'     => 'center',
             'index'     => 'created_at',
             'gmtoffset' => true

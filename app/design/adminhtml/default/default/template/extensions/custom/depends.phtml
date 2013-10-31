@@ -4,18 +4,24 @@
  *
  * NOTICE OF LICENSE
  *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
+ * This source file is subject to the Academic Free License (AFL 3.0)
+ * that is bundled with this package in the file LICENSE_AFL.txt.
  * It is also available through the world-wide-web at this URL:
- * http://opensource.org/licenses/osl-3.0.php
+ * http://opensource.org/licenses/afl-3.0.php
  * If you did not receive a copy of the license and are unable to
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   design_default
  * @package    Mage
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
- * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @license    http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
  */
 ?>
 <div class="entry-edit">
@@ -56,7 +62,7 @@
                     </td><td style="margin-bottom:5px;">
                         <input class="input-text" style="width:100px;" name="depends[package][recommended][]" value="<?php echo $self->getValue('depends/package/recommended/'.$_i) ?>"/>
                     </td><td style="margin-bottom:5px;">
-                        <input class="input-text" style="width:100px;" name="depends[package][exclude][]" <?php echo $self->getChecked('depends/package/exclude/'.$_i) ?>/>
+                        <input class="input-text" style="width:100px;" name="depends[package][exclude][]" value="<?php echo $self->getValue('depends/package/exclude/'.$_i) ?>"/>
                     </td><td style="margin-bottom:5px;">
                         <select name="depends[package][type][]" style="width:70px">
                             <?php foreach ($self->getDependTypes() as $_value=>$_label): ?>
@@ -81,9 +87,9 @@
             <?php endif ?>
             </tbody>
             <tfoot>
-            	<tr>
-            		<td class="a-right" colspan="8"><?php echo $this->getAddRowButtonHtml('depends_packages_container', 'depends_packages_template', 'Add Package dependency') ?></td>
-            	</tr>
+                <tr>
+                    <td class="a-right" colspan="8"><?php echo $this->getAddRowButtonHtml('depends_packages_container', 'depends_packages_template', $this->__('Add Package dependency')) ?></td>
+                </tr>
             </tfoot>
         </table>
     </fieldset>
@@ -118,7 +124,7 @@
                     </td><td style="margin-bottom:5px;">
                         <input class="input-text" style="width:100px;" name="depends[subpackage][recommended][]" value="<?php echo $self->getValue('depends/subpackage/recommended/'.$_i) ?>"/>
                     </td><td style="margin-bottom:5px;">
-                        <input class="input-text" style="width:100px;" name="depends[subpackage][exclude][]" <?php echo $self->getChecked('depends/subpackage/exclude/'.$_i) ?>/>
+                        <input class="input-text" style="width:100px;" name="depends[subpackage][exclude][]" value="<?php echo $self->getValue('depends/subpackage/exclude/'.$_i) ?>"/>
                     </td><td style="margin-bottom:5px;">
                         <select name="depends[subpackage][type][]" style="width:70px">
                         <?php foreach ($self->getDependTypes() as $_value=>$_label): ?>
@@ -143,9 +149,9 @@
             <?php endif ?>
             </tbody>
             <tfoot>
-            	<tr>
-            		<td class="a-right" colspan="8"><?php echo $this->getAddRowButtonHtml('depends_subpackages_container', 'depends_subpackages_template', 'Add Subpackage dependency') ?></td>
-            	</tr>
+                <tr>
+                    <td class="a-right" colspan="8"><?php echo $this->getAddRowButtonHtml('depends_subpackages_container', 'depends_subpackages_template', $this->__('Add Subpackage dependency')) ?></td>
+                </tr>
             </tfoot>
         </table>
     </fieldset>
@@ -181,7 +187,7 @@
                     </td><td style="margin-bottom:5px;">
                         <input class="input-text" style="width:100px;" name="depends[extension][recommended][]" value="<?php echo $self->getValue('depends/extension/recommended/'.$_i) ?>"/>
                     </td><td style="margin-bottom:5px;">
-                        <input class="input-text" style="width:100px;" name="depends[extension][exclude][]" <?php echo $self->getChecked('depends/extension/exclude/'.$_i) ?>/>
+                        <input class="input-text" style="width:100px;" name="depends[extension][exclude][]" value="<?php echo $self->getValue('depends/extension/exclude/'.$_i) ?>"/>
                     </td><td style="margin-bottom:5px;">
                         <select name="depends[extension][type][]" style="width:70px">
                             <?php foreach ($self->getDependTypes() as $_value=>$_label): ?>
@@ -206,9 +212,9 @@
             <?php endif ?>
             </tbody>
             <tfoot>
-            	<tr>
-            		<td class="a-right" colspan="7"><?php echo $this->getAddRowButtonHtml('depends_extensions_container', 'depends_extensions_template', 'Add PHP Extension dependency') ?></td>
-            	</tr>
+                <tr>
+                    <td class="a-right" colspan="7"><?php echo $this->getAddRowButtonHtml('depends_extensions_container', 'depends_extensions_template', $this->__('Add PHP Extension dependency')) ?></td>
+                </tr>
             </tfoot>
         </table>
     </fieldset>

@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Varien
  * @package    Varien_Object
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -122,6 +128,23 @@ final class Maged_Controller
         $this->model('pear', true)->installPackage($_POST['install_package_id']);
     }
 
+    public function distUpgradeAction()
+    {
+        $pear = $this->model('pear', true);
+        $this->view()->set('pear', $pear);
+        $this->view()->set('state', $pear->getPreferredState());
+        echo $this->view()->template('pear/dist.phtml');
+    }
+    
+    public function distUpgradePostAction()
+    {
+        if (!$_POST) {
+            echo "INVALID POST DATA";
+            return;
+        }
+        $result = $this->model('pear', true)->distUpgrade($_POST['version']);
+    }
+
     public function settingsAction()
     {
         $pearConfig = $this->model('pear', true)->pear()->getConfig();
@@ -146,8 +169,7 @@ final class Maged_Controller
         try {
             self::singleton()->dispatch();
         } catch (Exception $e) {
-            $this->session()->addMessage('error', $e->getMessage());
-
+            echo self::singleton()->view()->set('exception', $e)->template("exception.phtml");
         }
     }
 

@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Log
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -23,6 +29,7 @@
  *
  * @category   Mage
  * @package    Mage_Log
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Log_Model_Mysql4_Visitor extends Mage_Core_Model_Mysql4_Abstract
 {
@@ -51,8 +58,8 @@ class Mage_Log_Model_Mysql4_Visitor extends Mage_Core_Model_Mysql4_Abstract
     protected function _saveUrlInfo($visitor)
     {
         $this->_getWriteAdapter()->insert($this->getTable('log/url_info_table'), array(
-            'url'    => iconv_substr($visitor->getUrl(), 0, 250),
-            'referer'=> iconv_substr($visitor->getHttpReferer(), 0, 250)
+            'url'    => Mage::helper('core/string')->substr($visitor->getUrl(), 0, 250),
+            'referer'=> Mage::helper('core/string')->substr($visitor->getHttpReferer(), 0, 250)
         ));
         $visitor->setLastUrlId($this->_getWriteAdapter()->lastInsertId());
         return $this;
@@ -95,7 +102,7 @@ class Mage_Log_Model_Mysql4_Visitor extends Mage_Core_Model_Mysql4_Abstract
         $write = $this->_getWriteAdapter();
         $data = array(
             'visitor_id'        => $visitor->getId(),
-            'http_referer'      => iconv_substr($visitor->getHttpReferer(), 0, 250),
+            'http_referer'      => Mage::helper('core/string')->substr($visitor->getHttpReferer(), 0, 250),
             'http_user_agent'   => $visitor->getHttpUserAgent(),
             'http_accept_charset'=>$visitor->getHttpAcceptCharset(),
             'http_accept_language'=>$visitor->getHttpAcceptLanguage(),

@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Core
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -110,7 +116,8 @@ class Mage_Core_Model_Resource
      */
     public function getEntity($model, $entity)
     {
-        return Mage::getConfig()->getNode("global/models/$model/entities/$entity");
+        //return Mage::getConfig()->getNode("global/models/$model/entities/$entity");
+        return Mage::getConfig()->getNode()->global->models->{$model}->entities->{$entity};
     }
 
     /**
@@ -125,7 +132,8 @@ class Mage_Core_Model_Resource
         $arr = explode('/', $modelEntity);
         if (isset($arr[1])) {
             list($model, $entity) = $arr;
-            $resourceModel = (string)Mage::getConfig()->getNode('global/models/'.$model.'/resourceModel');
+            //$resourceModel = (string)Mage::getConfig()->getNode('global/models/'.$model.'/resourceModel');
+            $resourceModel = (string) Mage::getConfig()->getNode()->global->models->{$model}->resourceModel;
             $entityConfig = $this->getEntity($resourceModel, $entity);
             if ($entityConfig) {
                 $tableName = (string)$entityConfig->table;
@@ -136,7 +144,7 @@ class Mage_Core_Model_Resource
             $tableName = $modelEntity;
         }
 
-        $tablePrefix = (string)Mage::getConfig()->getNode('global/resources/db/table_prefix');
+        $tablePrefix = (string)Mage::getConfig()->getTablePrefix();
         return $tablePrefix . $tableName;
     }
 

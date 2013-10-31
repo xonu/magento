@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Payment
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -25,13 +31,14 @@
  *
  * @category   Mage
  * @package    Mage_Payment
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Payment_Model_Config
 {
     protected static $_methods;
 
     /**
-     * Retrieve active system carriers
+     * Retrieve active system payments
      *
      * @param   mixed $store
      * @return  array
@@ -44,6 +51,22 @@ class Mage_Payment_Model_Config
             if (Mage::getStoreConfigFlag('payment/'.$code.'/active', $store)) {
                 $methods[$code] = $this->_getMethod($code, $methodConfig);
             }
+        }
+        return $methods;
+    }
+
+    /**
+     * Retrieve all system payments
+     *
+     * @param mixed $store
+     * @return array
+     */
+    public function getAllMethods($store=null)
+    {
+        $methods = array();
+        $config = Mage::getStoreConfig('payment', $store);
+        foreach ($config as $code => $methodConfig) {
+            $methods[$code] = $this->_getMethod($code, $methodConfig);
         }
         return $methods;
     }
@@ -67,9 +90,13 @@ class Mage_Payment_Model_Config
      */
     public function getCcTypes()
     {
+        $_types = Mage::getConfig()->getNode('global/payment/cc/types')->asArray();
+
+        uasort($_types, array('Mage_Payment_Model_Config', 'compareCcTypes'));
+
         $types = array();
-        foreach (Mage::getConfig()->getNode('global/payment/cc/types')->asArray() as $data) {
-        	$types[$data['code']] = $data['name'];
+        foreach ($_types as $data) {
+            $types[$data['code']] = $data['name'];
         }
         return $types;
     }
@@ -84,7 +111,7 @@ class Mage_Payment_Model_Config
         $data = Mage::app()->getLocale()->getLocale()->getTranslationList('month');
         foreach ($data as $key => $value) {
             $monthNum = ($key < 10) ? '0'.$key : $key;
-        	$data[$key] = $monthNum . ' - ' . $value;
+            $data[$key] = $monthNum . ' - ' . $value;
         }
         return $data;
     }
@@ -104,5 +131,32 @@ class Mage_Payment_Model_Config
             $years[$year] = $year;
         }
         return $years;
+    }
+
+    /**
+     * Statis Method for compare sort order of CC Types
+     *
+     * @param array $a
+     * @param array $b
+     * @return int
+     */
+    static function compareCcTypes($a, $b)
+    {
+        if (!isset($a['order'])) {
+            $a['order'] = 0;
+        }
+
+        if (!isset($b['order'])) {
+            $b['order'] = 0;
+        }
+
+        if ($a['order'] == $b['order']) {
+            return 0;
+        } else if ($a['order'] > $b['order']) {
+            return 1;
+        } else {
+            return -1;
+        }
+
     }
 }

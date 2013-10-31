@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Catalog
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -24,6 +30,7 @@
  *
  * @category   Mage
  * @package    Mage_Catalog
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Catalog_Model_Product_Media_Config implements Mage_Media_Model_Image_Config_Interface
 {
@@ -50,7 +57,9 @@ class Mage_Catalog_Model_Product_Media_Config implements Mage_Media_Model_Image_
 
         public function getMediaUrl($file)
         {
-            if(in_array(substr($file, 0, 1), array('/'))) {
+            $file = $this->_prepareFileForUrl($file);
+
+            if(substr($file, 0, 1) == '/') {
                 return $this->getBaseMediaUrl() . $file;
             }
 
@@ -59,16 +68,20 @@ class Mage_Catalog_Model_Product_Media_Config implements Mage_Media_Model_Image_
 
         public function getMediaPath($file)
         {
-            if(in_array(substr($file, 0, 1), array('/', DIRECTORY_SEPARATOR))) {
-                return $this->getBaseMediaPath() . DIRECTORY_SEPARATOR . substr($file, 1);
+            $file = $this->_prepareFileForPath($file);
+
+            if(substr($file, 0, 1) == DS) {
+                return $this->getBaseMediaPath() . DS . substr($file, 1);
             }
 
-            return $this->getBaseMediaPath() . DIRECTORY_SEPARATOR . $file;
+            return $this->getBaseMediaPath() . DS . $file;
         }
 
         public function getTmpMediaUrl($file)
         {
-            if(in_array(substr($file, 0, 1), array('/'))) {
+            $file = $this->_prepareFileForUrl($file);
+
+            if(substr($file, 0, 1) == '/') {
                 return $this->getBaseTmpMediaUrl() . $file;
             }
 
@@ -77,10 +90,22 @@ class Mage_Catalog_Model_Product_Media_Config implements Mage_Media_Model_Image_
 
         public function getTmpMediaPath($file)
         {
-            if(in_array(substr($file, 0, 1), array('/', DIRECTORY_SEPARATOR))) {
-                return $this->getBaseTmpMediaPath() . DIRECTORY_SEPARATOR . substr($file, 1);
+            $file = $this->_prepareFileForPath($file);
+
+            if(substr($file, 0, 1) == DS) {
+                return $this->getBaseTmpMediaPath() . DS . substr($file, 1);
             }
 
-            return $this->getBaseTmpMediaPath() . DIRECTORY_SEPARATOR . $file;
+            return $this->getBaseTmpMediaPath() . DS . $file;
+        }
+
+        protected function _prepareFileForUrl($file)
+        {
+            return str_replace(DS, '/', $file);
+        }
+
+        protected function _prepareFileForPath($file)
+        {
+            return str_replace('/', DS, $file);
         }
 }

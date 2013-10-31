@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_CatalogSearch
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -37,39 +43,43 @@ class Mage_CatalogSearch_Block_Result extends Mage_Core_Block_Template
 
     protected function _prepareLayout()
     {
+        $title = $this->__("Search results for: '%s'", $this->helper('catalogSearch')->getEscapedQueryText());
+
         // add Home breadcrumb
-        $this->getLayout()->getBlock('breadcrumbs')
-            ->addCrumb('home', array(
+        if ($breadcrumbs = $this->getLayout()->getBlock('breadcrumbs')) {
+            $breadcrumbs->addCrumb('home', array(
                 'label' => $this->__('Home'),
                 'title' => $this->__('Go to Home Page'),
                 'link'  => Mage::getBaseUrl()
+            ))->addCrumb('search', array(
+                'label' => $title,
+                'title' => $title
             ));
-
-        $title = $this->__("Search results for: '%s'", $this->helper('catalogSearch')->getEscapedQueryText());
-        $this->getLayout()->getBlock('breadcrumbs')->addCrumb('search', array(
-            'label' => $title,
-            'title' => $title
-        ));
+        }
         $this->getLayout()->getBlock('head')->setTitle($title);
 
         return parent::_prepareLayout();
     }
 
-    public function initList($template)
-    {
-        $resultBlock = $this->getLayout()->createBlock('catalog/product_list', 'product_list')
-            ->setTemplate($template)
+    public function setListOrders() {
+        $this->getChild('search_result_list')
             ->setAvailableOrders(array(
                 'name'  => $this->__('Name'),
                 'price' => $this->__('Price'))
-            )
+            );
+    }
+
+    public function setListModes() {
+        $this->getChild('search_result_list')
             ->setModes(array(
                 'grid' => $this->__('Grid'),
                 'list' => $this->__('List'))
-            )
-            ->setCollection($this->_getProductCollection());
+            );
+    }
 
-        $this->setChild('search_result_list', $resultBlock);
+    public function setListCollection() {
+        $this->getChild('search_result_list')
+           ->setCollection($this->_getProductCollection());
     }
 
     public function getProductListHtml()
@@ -86,16 +96,7 @@ class Mage_CatalogSearch_Block_Result extends Mage_Core_Block_Template
     {
         if (is_null($this->_productCollection)) {
             $this->_productCollection = $this->_getQuery()->getResultCollection()
-                ->addAttributeToSelect('url_key')
-                ->addAttributeToSelect('name')
-                ->addAttributeToSelect('price')
-                ->addAttributeToSelect('special_price')
-                ->addAttributeToSelect('special_from_date')
-                ->addAttributeToSelect('special_to_date')
-                ->addAttributeToSelect('description')
-                ->addAttributeToSelect('image')
-                ->addAttributeToSelect('small_image')
-                ->addAttributeToSelect('tax_class_id');
+                ->addAttributeToSelect(Mage::getSingleton('catalog/config')->getProductAttributes());
 
             Mage::getSingleton('catalog/product_status')->addVisibleFilterToCollection($this->_productCollection);
             Mage::getSingleton('catalog/product_visibility')->addVisibleInSearchFilterToCollection($this->_productCollection);

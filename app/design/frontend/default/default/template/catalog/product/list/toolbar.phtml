@@ -4,21 +4,27 @@
  *
  * NOTICE OF LICENSE
  *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
+ * This source file is subject to the Academic Free License (AFL 3.0)
+ * that is bundled with this package in the file LICENSE_AFL.txt.
  * It is also available through the world-wide-web at this URL:
- * http://opensource.org/licenses/osl-3.0.php
+ * http://opensource.org/licenses/afl-3.0.php
  * If you did not receive a copy of the license and are unable to
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   design_default
  * @package    Mage
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
- * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @license    http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
  */
 ?>
-<?php 
+<?php
 /**
  * Product list toolbar
  *
@@ -36,13 +42,11 @@
             <?php endif; ?>
             </td>
             <?php if($this->getLastPageNum()>1): ?>
-            <td>
+            <td class="pages">
                 <strong><?php echo $this->__('Page:') ?></strong>
                 <ol>
                 <?php if (!$this->isFirstPage()): ?>
-                    <li>
-                        <a href="<?php echo $this->getPreviousPageUrl() ?>"><img src="<?php echo $this->getSkinUrl('images/pager_arrow_left.gif') ?>" alt="<?php echo $this->__('Previous') ?>"/></a>
-                    </li>
+                    <li><a href="<?php echo $this->getPreviousPageUrl() ?>"><img src="<?php echo $this->getSkinUrl('images/pager_arrow_left.gif') ?>" alt="<?php echo $this->__('Previous') ?>" /></a></li>
                 <?php endif ?>
                 <?php foreach ($this->getPages() as $_page): ?>
                     <?php if ($this->isPageCurrent($_page)): ?>
@@ -52,9 +56,7 @@
                     <?php endif ?>
                 <?php endforeach;; ?>
                 <?php if (!$this->isLastPage()): ?>
-                    <li>
-                        <a href="<?php echo $this->getNextPageUrl() ?>"><img src="<?php echo $this->getSkinUrl('images/pager_arrow_right.gif') ?>" alt="<?php echo $this->__('Next') ?>"/></a>
-                    </li>
+                    <li><a href="<?php echo $this->getNextPageUrl() ?>"><img src="<?php echo $this->getSkinUrl('images/pager_arrow_right.gif') ?>" alt="<?php echo $this->__('Next') ?>" /></a></li>
                 <?php endif ?>
                 </ol>
             </td>
@@ -97,14 +99,11 @@
                 <?php endforeach; ?>
                 </select>
                 <?php if($this->getCurrentDirection() == 'desc'): ?>
-                    <a href="<?php echo $this->getOrderUrl(null, 'asc') ?>"><img src="<?php echo $this->getSkinUrl('images/sort_desc_arrow.gif') ?>" alt="<?php echo $this->__('Set Ascending Direction') ?>" class="v-middle"/></a>
+                    <a href="<?php echo $this->getOrderUrl(null, 'asc') ?>"><img src="<?php echo $this->getSkinUrl('images/sort_desc_arrow.gif') ?>" alt="<?php echo $this->__('Set Ascending Direction') ?>" class="v-middle" /></a>
                 <?php else: ?>
-                    <a href="<?php echo $this->getOrderUrl(null, 'desc') ?>"><img src="<?php echo $this->getSkinUrl('images/sort_asc_arrow.gif') ?>" alt="<?php echo $this->__('Set Descending Direction') ?>" class="v-middle"/></a>
+                    <a href="<?php echo $this->getOrderUrl(null, 'desc') ?>"><img src="<?php echo $this->getSkinUrl('images/sort_asc_arrow.gif') ?>" alt="<?php echo $this->__('Set Descending Direction') ?>" class="v-middle" /></a>
                 <?php endif; ?>
             </td>
-            <?php if ($this->helper('rss/catalog')->getTagFeedUrl()): ?>
-            <td class="a-right"><a href="<?php echo $this->helper('rss/catalog')->getTagFeedUrl() ?>" class="no-wrap link-feed"><?php echo $this->__('Subscribe to Feed') ?></a></td>
-            <?php endif; ?>
         </tr>
     </table>
     <?php endif; ?>

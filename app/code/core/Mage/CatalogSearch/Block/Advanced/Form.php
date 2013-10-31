@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_CatalogSearch
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -23,6 +29,7 @@
  *
  * @category   Mage
  * @package    Mage_CatalogSearch
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_CatalogSearch_Block_Advanced_Form extends Mage_Core_Block_Template
 {
@@ -33,15 +40,15 @@ class Mage_CatalogSearch_Block_Advanced_Form extends Mage_Core_Block_Template
         }
 
         // add Home breadcrumb
-        $this->getLayout()->getBlock('breadcrumbs')
-            ->addCrumb('home',
-                array('label'=>Mage::helper('catalogsearch')->__('Home'),
-                    'title'=>Mage::helper('catalogsearch')->__('Go to Home Page'),
-                    'link'=>Mage::getBaseUrl())
-                )
-            ->addCrumb('search',
-                array('label'=>Mage::helper('catalogsearch')->__('Catalog Advanced Search'))
-                );
+        if ($breadcrumbs = $this->getLayout()->getBlock('breadcrumbs')) {
+            $breadcrumbs->addCrumb('home', array(
+                'label'=>Mage::helper('catalogsearch')->__('Home'),
+                'title'=>Mage::helper('catalogsearch')->__('Go to Home Page'),
+                'link'=>Mage::getBaseUrl()
+            ))->addCrumb('search', array(
+                'label'=>Mage::helper('catalogsearch')->__('Catalog Advanced Search')
+            ));
+        }
         return parent::_prepareLayout();
     }
 
@@ -64,7 +71,7 @@ class Mage_CatalogSearch_Block_Advanced_Form extends Mage_Core_Block_Template
      */
     public function getAttributeLabel($attribute)
     {
-        return Mage::helper('catalogsearch')->__($attribute->getFrontend()->getLabel());
+        return Mage::helper('catalog')->__($attribute->getFrontend()->getLabel());
     }
 
     /**
@@ -96,6 +103,43 @@ class Mage_CatalogSearch_Block_Advanced_Form extends Mage_Core_Block_Template
         return $value;
     }
 
+    public function getAvailableCurrencies()
+    {
+        $currencies = $this->getData('_currencies');
+        if (is_null($currencies)) {
+            $currencies = array();
+            $codes = Mage::app()->getStore()->getAvailableCurrencyCodes(true);
+            if (is_array($codes) && count($codes)) {
+                $rates = Mage::getModel('directory/currency')->getCurrencyRates(
+                    Mage::app()->getStore()->getBaseCurrency(),
+                    $codes
+                );
+
+                foreach ($codes as $code) {
+                    if (isset($rates[$code])) {
+                        $currencies[$code] = $code;
+                    }
+                }
+            }
+
+            $this->setData('currencies', $currencies);
+        }
+        return $currencies;
+    }
+
+    public function getCurrencyCount()
+    {
+        return count($this->getAvailableCurrencies());
+    }
+
+    public function getCurrency($attribute)
+    {
+        return Mage::app()->getStore()->getCurrentCurrencyCode();
+
+        $baseCurrency = Mage::app()->getStore()->getBaseCurrency()->getCurrencyCode();
+        return $this->getAttributeValue($attribute, 'currency') ? $this->getAttributeValue($attribute, 'currency') : $baseCurrency;
+    }
+
     /**
      * Retrieve attribute input type
      *
@@ -108,6 +152,14 @@ class Mage_CatalogSearch_Block_Advanced_Form extends Mage_Core_Block_Template
         $imputType  = $attribute->getFrontend()->getInputType();
         if ($imputType == 'select' || $imputType == 'multiselect') {
             return 'select';
+        }
+
+        if ($imputType == 'boolean') {
+            return 'yesno';
+        }
+
+        if ($imputType == 'price') {
+            return 'price';
         }
 
         if ($dataType == 'int' || $dataType == 'decimal') {
@@ -144,6 +196,26 @@ class Mage_CatalogSearch_Block_Advanced_Form extends Mage_Core_Block_Template
             ->setId($attribute->getAttributeCode())
             ->setTitle($this->getAttributeLabel($attribute))
             ->setExtraParams($extra)
+            ->setValue($this->getAttributeValue($attribute))
+            ->setOptions($options)
+			->setClass('multiselect')
+            ->getHtml();
+    }
+
+    public function getAttributeYesNoElement($attribute)
+    {
+        $options = array(
+            array('value' => '',  'label' => Mage::helper('catalogsearch')->__('All')),
+            array('value' => '1', 'label' => Mage::helper('catalogsearch')->__('Yes')),
+            array('value' => '0', 'label' => Mage::helper('catalogsearch')->__('No'))
+        );
+
+        $name = $attribute->getAttributeCode();
+        return $this->_getSelectBlock()
+            ->setName($name)
+            ->setId($attribute->getAttributeCode())
+            ->setTitle($this->getAttributeLabel($attribute))
+            ->setExtraParams("")
             ->setValue($this->getAttributeValue($attribute))
             ->setOptions($options)
             ->getHtml();

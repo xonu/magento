@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Adminhtml
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -23,6 +29,7 @@
  *
  * @category   Mage
  * @package    Mage_Adminhtml
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 
 class Mage_Adminhtml_Block_System_Store_Edit_Form extends Mage_Adminhtml_Block_Widget_Form
@@ -69,10 +76,14 @@ class Mage_Adminhtml_Block_System_Store_Edit_Form extends Mage_Adminhtml_Block_W
             $showStoreFieldset = true;
         }
 
+        /* @var $websiteModel Mage_Core_Model_Website */
+        /* @var $groupModel Mage_Core_Model_Store_Group */
+        /* @var $storeModel Mage_Core_Model_Store */
+
         $form = new Varien_Data_Form(array(
             'id'        => 'edit_form',
             'action'    => $this->getData('action'),
-            'method'    => 'POST'
+            'method'    => 'post'
         ));
 
         if ($showWebsiteFieldset) {
@@ -117,6 +128,20 @@ class Mage_Adminhtml_Block_System_Store_Edit_Form extends Mage_Adminhtml_Block_W
                 ));
             }
 
+            if (!$websiteModel->getIsDefault() && $websiteModel->getStoresCount()) {
+                $fieldset->addField('is_default', 'checkbox', array(
+                    'name'      => 'website[is_default]',
+                    'label'     => Mage::helper('core')->__('Set as default'),
+                    'value'     => 1
+                ));
+            }
+            else {
+                $fieldset->addField('is_default', 'hidden', array(
+                    'name'      => 'website[is_default]',
+                    'value'     => $websiteModel->getIsDefault()
+                ));
+            }
+
             $fieldset->addField('website_website_id', 'hidden', array(
                 'name'  => 'website[website_id]',
                 'value' => $websiteModel->getId()
@@ -141,8 +166,9 @@ class Mage_Adminhtml_Block_System_Store_Edit_Form extends Mage_Adminhtml_Block_W
                     'values'    => $websites,
                     'required'  => true
                 ));
+
                 if ($groupModel->getId() && $groupModel->getWebsite()->getDefaultGroupId() == $groupModel->getId()) {
-                    if ($groupModel->getWebsite() && $groupModel->getWebsite()->getGroupsCount() > 1) {
+                    if ($groupModel->getWebsite()->getIsDefault() || $groupModel->getWebsite()->getGroupsCount() == 1) {
                         $form->getElement('group_website_id')->setDisabled(true);
 
                         $fieldset->addField('group_hidden_website_id', 'hidden', array(

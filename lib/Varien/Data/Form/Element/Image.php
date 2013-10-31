@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Varien
  * @package    Varien_Data
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -24,6 +30,7 @@
  *
  * @category   Varien
  * @package    Varien_Data
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Varien_Data_Form_Element_Image extends Varien_Data_Form_Element_Abstract
 {
@@ -55,11 +62,9 @@ class Varien_Data_Form_Element_Image extends Varien_Data_Form_Element_Abstract
                 $url = Mage::getBaseUrl('media') . $url;
             }
 
-            $html = '<a href="'.$url.'" target="_blank" onclick="imagePreview(\''.$this->getHtmlId().'_image\');return false;">
-            <img src="'.$url.'" id="'.$this->getHtmlId().'_image" alt="'.$this->getValue().'" height="22" width="22" align="absmiddle" class="small-image-preview">
-            </a>';
+            $html = '<a href="'.$url.'" onclick="imagePreview(\''.$this->getHtmlId().'_image\'); return false;"><img src="'.$url.'" id="'.$this->getHtmlId().'_image" title="'.$this->getValue().'" alt="'.$this->getValue().'" height="22" width="22" class="small-image-preview v-middle" /></a> ';
         }
-        $this->setClass(null);
+        $this->setClass('input-file');
         $html.= parent::getElementHtml();
         $html.= $this->_getDeleteCheckbox();
 
@@ -75,9 +80,11 @@ class Varien_Data_Form_Element_Image extends Varien_Data_Form_Element_Abstract
     {
         $html = '';
         if ($this->getValue()) {
-            $html.= '<input type="checkbox" name="'.parent::getName().'[delete]" value="1" id="'.$this->getHtmlId().'_delete"'.($this->getDisabled() ? ' disabled': '').'/>';
-            $html.= '<label class="'.($this->getDisabled() ? 'disabled' : 'normal'). '" for="'.$this->getHtmlId().'_delete">'.__('Delete Image').'</label>';
-            $html.= $this->_getHiddenInput();
+            $html .= '<span class="delete-image">';
+            $html .= '<input type="checkbox" name="'.parent::getName().'[delete]" value="1" class="checkbox" id="'.$this->getHtmlId().'_delete"'.($this->getDisabled() ? ' disabled="disabled"': '').'/>';
+            $html .= '<label for="'.$this->getHtmlId().'_delete"'.($this->getDisabled() ? ' class="disabled"' : '').'> '.__('Delete Image').'</label>';
+            $html .= $this->_getHiddenInput();
+            $html .= '</span>';
         }
 
         return $html;
@@ -90,7 +97,7 @@ class Varien_Data_Form_Element_Image extends Varien_Data_Form_Element_Abstract
      */
     protected function _getHiddenInput()
     {
-        return '<input type="hidden" name="'.parent::getName().'[value]" value="'.$this->getValue().'">';
+        return '<input type="hidden" name="'.parent::getName().'[value]" value="'.$this->getValue().'" />';
     }
 
     /**

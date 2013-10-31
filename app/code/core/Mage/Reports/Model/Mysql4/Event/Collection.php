@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Reports
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -23,6 +29,7 @@
  *
  * @category   Mage
  * @package    Mage_Reports
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 
 class Mage_Reports_Model_Mysql4_Event_Collection extends Mage_Core_Model_Mysql4_Collection_Abstract
@@ -63,34 +70,7 @@ class Mage_Reports_Model_Mysql4_Event_Collection extends Mage_Core_Model_Mysql4_
      */
     public function addRecentlyFiler($typeId, $subjectId, $subtype = 0, $ignore = null, $limit = 15)
     {
-        $stores = array();
-        if (Mage::app()->getStore()->getId() == 0) {
-            if (!is_null($this->_storeIds)) {
-                $stores = $this->_storeIds;
-            }
-            else {
-                foreach (Mage::app()->getStores() as $store) {
-                    $stores[] = $store->getId();
-                }
-            }
-        }
-        else {
-            switch (Mage::getStoreConfig('catalog/recently_products/scope')) {
-                case 'website':
-                    $resourceStore = Mage::app()->getStore()->getWebsite()->getStores();
-                    break;
-                case 'group':
-                    $resourceStore = Mage::app()->getStore()->getGroup()->getStores();
-                    break;
-                default:
-                    $resourceStore = array(Mage::app()->getStore());
-                    break;
-            }
-
-            foreach ($resourceStore as $store) {
-                $stores[] = $store->getId();
-            }
-        }
+        $stores = $this->getResource()->getCurrentStoreIds($this->_storeIds);
         $this->_select
             ->where('event_type_id=?', $typeId)
             ->where('subject_id=?', $subjectId)

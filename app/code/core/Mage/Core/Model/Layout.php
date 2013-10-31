@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Core
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -149,17 +155,20 @@ class Mage_Core_Model_Layout extends Varien_Simplexml_Config
         $xml = $this->getUpdate()->asSimplexml();
         $removeInstructions = $xml->xpath("//remove");
         foreach ($removeInstructions as $infoNode) {
-        	$attributes = $infoNode->attributes();
-        	if ($blockName = (string)$attributes->name) {
+            $attributes = $infoNode->attributes();
+            if ($acl = (string)$attributes->acl && !Mage::getSingleton('admin/session')->isAllowed($acl)) {
+                $block->addAttribute('ignore', true);
+            }
+            if ($blockName = (string)$attributes->name) {
                 $ignoreNodes = $xml->xpath("//block[@name='".$blockName."']");
                 foreach ($ignoreNodes as $block) {
-                	$block->addAttribute('ignore', true);
+                    $block->addAttribute('ignore', true);
                 }
                 $ignoreNodes = $xml->xpath("//reference[@name='".$blockName."']");
                 foreach ($ignoreNodes as $block) {
-                	$block->addAttribute('ignore', true);
+                    $block->addAttribute('ignore', true);
                 }
-        	}
+            }
         }
 
         $this->setXml($xml);
@@ -303,6 +312,17 @@ class Mage_Core_Model_Layout extends Varien_Simplexml_Config
                         $arg = $arg->asArray();
                         unset($arg['@']);
                         $args[$key] = call_user_func_array(array(Mage::helper($helperName), $helperMethod), $arg);
+                    } else {
+                        /**
+                         * if there is no helper we hope that this is assoc array
+                         */
+                        $arr = array();
+                        foreach($arg as $subkey => $value) {
+                            $arr[(string)$subkey] = (string)$value;
+                        }
+                        if (!empty($arr)) {
+                            $args[$key] = $arr;
+                        }
                     }
                 }
             }
@@ -315,7 +335,6 @@ class Mage_Core_Model_Layout extends Varien_Simplexml_Config
             }
 
             $this->_translateLayoutNode($node, $args);
-
             call_user_func_array(array($block, $method), $args);
         }
 
@@ -448,6 +467,7 @@ class Mage_Core_Model_Layout extends Varien_Simplexml_Config
         return $block;
     }
 
+
     /**
      * Retrieve all blocks from registry as array
      *
@@ -495,7 +515,7 @@ class Mage_Core_Model_Layout extends Varien_Simplexml_Config
     /**
      * Get all blocks marked for output
      *
-     * @return array
+     * @return string
      */
     public function getOutput()
     {

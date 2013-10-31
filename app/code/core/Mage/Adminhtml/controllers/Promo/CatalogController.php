@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Adminhtml
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -33,7 +39,7 @@ class Mage_Adminhtml_Promo_CatalogController extends Mage_Adminhtml_Controller_A
     public function indexAction()
     {
         if (Mage::app()->loadCache('catalog_rules_dirty')) {
-            Mage::getSingleton('adminhtml/session')->addNotice(Mage::helper('catalogrule')->__('There are rules that has been changed but not applied. To see immediate effect in catalog, please click Apply Rules'));
+            Mage::getSingleton('adminhtml/session')->addNotice(Mage::helper('catalogrule')->__('There are rules that have been changed but not applied. Please, click Apply Rules in order to see immediate effect in catalog.'));
         }
 
         $this->_initAction()
@@ -105,10 +111,10 @@ class Mage_Adminhtml_Promo_CatalogController extends Mage_Adminhtml_Controller_A
             unset($data['rule']);
 
             if (!empty($data['auto_apply'])) {
-	            $autoApply = true;
-	            unset($data['auto_apply']);
+                $autoApply = true;
+                unset($data['auto_apply']);
             } else {
-            	$autoApply = false;
+                $autoApply = false;
             }
 
             $model->loadPost($data);
@@ -118,10 +124,10 @@ class Mage_Adminhtml_Promo_CatalogController extends Mage_Adminhtml_Controller_A
                 Mage::getSingleton('adminhtml/session')->addSuccess(Mage::helper('catalogrule')->__('Rule was successfully saved'));
                 Mage::getSingleton('adminhtml/session')->setPageData(false);
                 if ($autoApply) {
-                	$this->_forward('applyRules');
+                    $this->_forward('applyRules');
                 } else {
                     Mage::app()->saveCache(1, 'catalog_rules_dirty');
-                	$this->_redirect('*/*/');
+                    $this->_redirect('*/*/');
                 }
                 return;
             } catch (Exception $e) {
@@ -223,15 +229,22 @@ class Mage_Adminhtml_Promo_CatalogController extends Mage_Adminhtml_Controller_A
         $this->getResponse()->setBody($html);
     }
 
+    /**
+     * Apply all active catalog price rules
+     */
     public function applyRulesAction()
     {
         try {
             $resource = Mage::getResourceSingleton('catalogrule/rule');
-            $resource->applyAllRulesForDateRange($resource->formatDate(mktime(0,0,0)));
+            $resource->applyAllRulesForDateRange();
             Mage::app()->removeCache('catalog_rules_dirty');
-            Mage::getSingleton('adminhtml/session')->addSuccess(Mage::helper('catalogrule')->__('Rules were successfully applied'));
+            Mage::getSingleton('adminhtml/session')->addSuccess(
+                Mage::helper('catalogrule')->__('Rules were successfully applied')
+            );
         } catch (Exception $e) {
-            Mage::getSingleton('adminhtml/session')->addError(Mage::helper('catalogrule')->__('Unable to apply rules'));
+            Mage::getSingleton('adminhtml/session')->addError(
+                Mage::helper('catalogrule')->__('Unable to apply rules')
+            );
             throw $e;
         }
 
@@ -250,6 +263,6 @@ class Mage_Adminhtml_Promo_CatalogController extends Mage_Adminhtml_Controller_A
 
     protected function _isAllowed()
     {
-	    return Mage::getSingleton('admin/session')->isAllowed('promo/catalog');
+        return Mage::getSingleton('admin/session')->isAllowed('promo/catalog');
     }
 }

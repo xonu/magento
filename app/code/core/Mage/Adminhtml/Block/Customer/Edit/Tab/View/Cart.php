@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Adminhtml
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -23,6 +29,7 @@
  *
  * @category   Mage
  * @package    Mage_Adminhtml
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Adminhtml_Block_Customer_Edit_Tab_View_Cart extends Mage_Adminhtml_Block_Widget_Grid
 {
@@ -40,24 +47,22 @@ class Mage_Adminhtml_Block_Customer_Edit_Tab_View_Cart extends Mage_Adminhtml_Bl
 
     protected function _prepareCollection()
     {
-        $quote = Mage::getModel('sales/quote')->loadByCustomer(Mage::registry('current_customer'));
+        $quote = Mage::getModel('sales/quote');
+        // set website to quote, if any
+        if ($this->getWebsiteId()) {
+            $quote->setWebsite(Mage::app()->getWebsite($this->getWebsiteId()));
+        }
+        $quote->loadByCustomer(Mage::registry('current_customer'));
+
         if ($quote) {
             $collection = $quote->getItemsCollection(false);
         }
         else {
             $collection = new Varien_Data_Collection();
         }
-
-
         $this->setCollection($collection);
 
         return parent::_prepareCollection();
-    }
-
-    protected function _afterLoadCollection()
-    {
-        $this->getParentBlock()->setTitle(Mage::helper('customer')->__('Shopping Cart - %d item(s)', $this->getCollection()->getSize()));
-        return $this;
     }
 
     protected function _prepareColumns()

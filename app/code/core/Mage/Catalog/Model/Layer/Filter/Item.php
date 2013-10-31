@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Catalog
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -23,9 +29,14 @@
  *
  * @category   Mage
  * @package    Mage_Catalog
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Catalog_Model_Layer_Filter_Item extends Varien_Object
 {
+    /**
+     * Get filter instance
+     * @return Mage_Catalog_Model_Layer_Filter_Abstract
+     */
     public function getFilter()
     {
         $filter = $this->getData('filter');
@@ -34,17 +45,23 @@ class Mage_Catalog_Model_Layer_Filter_Item extends Varien_Object
         }
         return $filter;
     }
-    
+
     public function getUrl()
     {
-        return Mage::getUrl('*/*/*', array('_current'=>true, $this->getFilter()->getRequestVar()=>$this->getValue()));
+        $query = array($this->getFilter()->getRequestVar()=>$this->getValue());
+        return Mage::getUrl('*/*/*', array('_current'=>true, '_use_rewrite'=>true, '_query'=>$query));
     }
-    
+
     public function getRemoveUrl()
     {
-        return Mage::getUrl('*/*/*', array('_current'=>true, $this->getFilter()->getRequestVar()=>null));
+        $query = array($this->getFilter()->getRequestVar()=>$this->getFilter()->getResetValue());
+        $params = $query;
+        $params['_current'] = true;
+        $params['_use_rewrite'] = true;
+        $params['_query']   = $query;
+        return Mage::getUrl('*/*/*', $params);
     }
-    
+
     public function getName()
     {
         return $this->getFilter()->getName();

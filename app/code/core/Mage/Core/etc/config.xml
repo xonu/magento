@@ -5,24 +5,30 @@
  *
  * NOTICE OF LICENSE
  *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
+ * This source file is subject to the Academic Free License (AFL 3.0)
+ * that is bundled with this package in the file LICENSE_AFL.txt.
  * It is also available through the world-wide-web at this URL:
- * http://opensource.org/licenses/osl-3.0.php
+ * http://opensource.org/licenses/afl-3.0.php
  * If you did not receive a copy of the license and are unable to
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Core
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
- * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @license    http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
  */
 -->
 <config>
     <modules>
         <Mage_Core>
-             <version>0.8.5</version>
+             <version>0.8.12</version>
         </Mage_Core>
     </modules>
 
@@ -44,6 +50,7 @@
                     <convert_profile><table>core_convert_profile</table></convert_profile>
                     <convert_history><table>core_convert_history</table></convert_history>
                     <design_change><table>design_change</table></design_change>
+                    <flag><table>core_flag</table></flag>
                 </entities>
             </core_mysql4>
         </models>
@@ -58,14 +65,22 @@
         </template>
         <cache>
             <types>
-                <config><label>Configuration</label></config>
-                <layout><label>Layouts</label></layout>
-                <block_html><label>Blocks HTML output</label></block_html>
-                <translate><label>Translations</label></translate>
-                <pear><label>PEAR Channels and Packages</label></pear>
-                <collections><label>Collections Data</label></collections>
+                <config translate="label" module="core"><label>Configuration</label></config>
+                <layout translate="label" module="core"><label>Layouts</label></layout>
+                <block_html translate="label" module="core"><label>Blocks HTML output</label></block_html>
+                <translate translate="label" module="core"><label>Translations</label></translate>
+                <collections translate="label" module="core"><label>Collections Data</label></collections>
             </types>
         </cache>
+        <session>
+            <validation>
+                <http_user_agent_skip>
+                    <flash>Shockwave Flash</flash>
+                    <flash_9_mac>Adobe Flash Player 9</flash_9_mac>
+                    <flash_10_mac>Adobe Flash Player 10</flash_10_mac>
+                </http_user_agent_skip>
+            </validation>
+        </session>
     </global>
     <frontend>
         <routers>
@@ -133,8 +148,10 @@
                 <file>system.log</file>
                 <exception_file>exception.log</exception_file>
             </log>
+            <js>
+                <deprecation>0</deprecation>
+            </js>
         </dev>
-
 
         <system>
             <smtp>
@@ -172,12 +189,20 @@
         </trans_email>
 
         <web>
+            <routers> <!-- declare default routers-->
+                <admin><area>admin</area><class>Mage_Core_Controller_Varien_Router_Admin</class></admin>
+                <standard><area>frontend</area><class>Mage_Core_Controller_Varien_Router_Standard</class></standard>
+            </routers>
+            <url>
+                <use_store>0</use_store>
+            </url>
             <seo>
                 <use_rewrites>0</use_rewrites>
             </seo>
 
             <unsecure>
                 <base_url>{{base_url}}</base_url>
+                <base_web_url>{{unsecure_base_url}}</base_web_url>
                 <base_link_url>{{unsecure_base_url}}</base_link_url>
                 <base_js_url>{{unsecure_base_url}}js/</base_js_url>
                 <base_skin_url>{{unsecure_base_url}}skin/</base_skin_url>
@@ -186,6 +211,7 @@
 
             <secure>
                 <base_url>{{base_url}}</base_url>
+                <base_web_url>{{secure_base_url}}</base_web_url>
                 <base_link_url>{{secure_base_url}}</base_link_url>
                 <base_js_url>{{secure_base_url}}js/</base_js_url>
                 <base_skin_url>{{secure_base_url}}skin/</base_skin_url>
@@ -197,6 +223,40 @@
             <cookie>
                 <cookie_lifetime>3600</cookie_lifetime>
             </cookie>
+            
+            <session>
+                <use_remote_addr>1</use_remote_addr>
+                <use_http_via>1</use_http_via>
+                <use_http_x_forwarded_for>1</use_http_x_forwarded_for>
+                <use_http_user_agent>1</use_http_user_agent>
+            </session>
         </web>
+
+        <admin>
+            <startup>
+                <page>dashboard</page>
+            </startup>
+            <url>
+                <use_custom>0</use_custom>
+                <custom></custom>
+            </url>
+        </admin>
+
+        <general>
+            <locale>
+                <firstday>0</firstday>
+                <weekend>0,6</weekend>
+            </locale>
+        </general>
     </default>
+    <stores> <!-- declare routers for installation process -->
+        <default>
+            <web>
+                <routers>
+                    <admin><area>admin</area><class>Mage_Core_Controller_Varien_Router_Admin</class></admin>
+                    <standard><area>frontend</area><class>Mage_Core_Controller_Varien_Router_Standard</class></standard>
+                </routers>
+            </web>
+        </default>
+    </stores>
 </config>

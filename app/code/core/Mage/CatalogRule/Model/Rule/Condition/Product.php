@@ -12,21 +12,36 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_CatalogRule
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
 
 class Mage_CatalogRule_Model_Rule_Condition_Product extends Mage_Rule_Model_Condition_Abstract
 {
+    /**
+     * Retrieve attribute object
+     *
+     * @return Mage_Catalog_Model_Resource_Eav_Attribute
+     */
     public function getAttributeObject()
     {
-        $obj = Mage::getSingleton('eav/config')
-            ->getAttribute('catalog_product', $this->getAttribute());
-        if ($obj && !$obj->getEntity()) {
-            $obj->setEntity(Mage::getResourceSingleton('catalog/product'));
+        try {
+            $obj = Mage::getSingleton('eav/config')
+                ->getAttribute('catalog_product', $this->getAttribute());
+        }
+        catch (Exception $e) {
+            $obj = new Varien_Object();
+            $obj->setEntity(Mage::getResourceSingleton('catalog/product'))
+                ->setFrontendInput('text');
         }
         return $obj;
     }
@@ -44,7 +59,7 @@ class Mage_CatalogRule_Model_Rule_Condition_Product extends Mage_Rule_Model_Cond
 
         $attributes = array();
         foreach ($productAttributes as $attr) {
-            if (!$attr->isAllowedForRuleCondition()) {
+            if (!$attr->isAllowedForRuleCondition() || !$attr->getIsUsedForPriceRules()) {
                 continue;
             }
             $attributes[$attr->getAttributeCode()] = $attr->getFrontend()->getLabel();
@@ -113,7 +128,7 @@ class Mage_CatalogRule_Model_Rule_Condition_Product extends Mage_Rule_Model_Cond
         }
 
         if (!empty($image)) {
-            $html = '<a href="javascript:void(0)" class="rule-chooser-trigger"><img src="' . $image . '" alt="" align="absmiddle" class="rule-chooser-trigger" title="' . Mage::helper('rule')->__('Open Chooser') . '" /></a>';
+            $html = '<a href="javascript:void(0)" class="rule-chooser-trigger"><img src="' . $image . '" alt="" class="v-middle rule-chooser-trigger" title="' . Mage::helper('rule')->__('Open Chooser') . '" /></a>';
         }
         return $html;
     }
@@ -130,7 +145,7 @@ class Mage_CatalogRule_Model_Rule_Condition_Product extends Mage_Rule_Model_Cond
         $attributes = $this->getRule()->getCollectedAttributes();
         $attributes[$this->getAttribute()] = true;
         $this->getRule()->setCollectedAttributes($attributes);
-        $productCollection->addAttributeToSelect($this->getAttribute());
+        $productCollection->addAttributeToSelect($this->getAttribute(), 'left');
         return $this;
     }
 
@@ -216,5 +231,34 @@ class Mage_CatalogRule_Model_Rule_Condition_Product extends Mage_Rule_Model_Cond
             }
         }
         return false;
+    }
+
+    public function loadArray($arr)
+    {
+        $this->setAttribute(isset($arr['attribute']) ? $arr['attribute'] : false);
+        $attribute = $this->getAttributeObject();
+
+        if ($attribute && $attribute->getBackendType() == 'decimal') {
+            $arr['value'] = isset($arr['value']) ? Mage::app()->getLocale()->getNumber($arr['value']) : false;
+            $arr['is_value_parsed'] = isset($arr['is_value_parsed']) ? Mage::app()->getLocale()->getNumber($arr['is_value_parsed']) : false;
+        }
+
+        return parent::loadArray($arr);
+    }
+
+    public function validate(Varien_Object $object)
+    {
+        $attr = $object->getResource()->getAttribute($this->getAttribute());
+        if ($attr && $attr->getBackendType()=='datetime' && !is_int($this->getValue())) {
+            $this->setValue(strtotime($this->getValue()));
+            $value = strtotime($object->getData($this->getAttribute()));
+            return $this->validateAttribute($value);
+        }
+
+        if ($this->getAttribute() == 'category_ids') {
+            return $this->validateAttribute($object->getAvailableInCategories());
+        }
+
+        return parent::validate($object);
     }
 }

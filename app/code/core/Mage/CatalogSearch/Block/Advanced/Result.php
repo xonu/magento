@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_CatalogSearch
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -23,36 +29,46 @@
  *
  * @category   Mage
  * @package    Mage_CatalogSearch
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_CatalogSearch_Block_Advanced_Result extends Mage_Core_Block_Template
 {
     protected function _prepareLayout()
     {
-        $this->getLayout()->getBlock('breadcrumbs')
-            ->addCrumb('home',
-                array('label'=>Mage::helper('catalogsearch')->__('Home'),
-                    'title'=>Mage::helper('catalogsearch')->__('Go to Home Page'),
-                    'link'=>Mage::getBaseUrl())
-            )
-            ->addCrumb('search',
-                array('label'=>Mage::helper('catalogsearch')->__('Catalog Advanced Search'), 'link'=>$this->getUrl('*/*/'))
-            )
-            ->addCrumb('search_result',
-                array('label'=>Mage::helper('catalogsearch')->__('Results'))
-            );
-
+        if ($breadcrumbs = $this->getLayout()->getBlock('breadcrumbs')) {
+            $breadcrumbs->addCrumb('home', array(
+                'label'=>Mage::helper('catalogsearch')->__('Home'),
+                'title'=>Mage::helper('catalogsearch')->__('Go to Home Page'),
+                'link'=>Mage::getBaseUrl()
+            ))->addCrumb('search', array(
+                'label'=>Mage::helper('catalogsearch')->__('Catalog Advanced Search'),
+                'link'=>$this->getUrl('*/*/')
+            ))->addCrumb('search_result', array(
+                'label'=>Mage::helper('catalogsearch')->__('Results')
+            ));
+        }
         return parent::_prepareLayout();
     }
 
-    public function initList($template)
-    {
-        $resultBlock = $this->getLayout()
-            ->createBlock('catalog/product_list', 'product_list')
-            ->setTemplate($template)
-            ->setAvailableOrders(array('name'=>Mage::helper('catalogsearch')->__('Name'), 'price'=>Mage::helper('catalogsearch')->__('Price')))
-            ->setModes(array('grid'=>Mage::helper('catalogsearch')->__('Grid'), 'list' => Mage::helper('catalogsearch')->__('List')))
-            ->setCollection($this->_getProductCollection());
-        $this->setChild('search_result_list', $resultBlock);
+    public function setListOrders() {
+        $this->getChild('search_result_list')
+            ->setAvailableOrders(array(
+                'name' => Mage::helper('catalogsearch')->__('Name'),
+                'price'=>Mage::helper('catalogsearch')->__('Price'))
+            );
+    }
+
+    public function setListModes() {
+        $this->getChild('search_result_list')
+            ->setModes(array(
+                'grid' => Mage::helper('catalogsearch')->__('Grid'),
+                'list' => Mage::helper('catalogsearch')->__('List'))
+            );
+    }
+
+    public function setListCollection() {
+        $this->getChild('search_result_list')
+           ->setCollection($this->_getProductCollection());
     }
 
     protected function _getProductCollection(){
@@ -75,14 +91,14 @@ class Mage_CatalogSearch_Block_Advanced_Result extends Mage_Core_Block_Template
 
     public function getProductListHtml()
     {
-    	return $this->getChildHtml('search_result_list');
+        return $this->getChildHtml('search_result_list');
     }
 
     public function getFormUrl()
     {
         return Mage::getModel('core/url')
             ->setQueryParams($this->getRequest()->getQuery())
-            ->getUrl('*/*/');
+            ->getUrl('*/*/', array('_escape' => true));
     }
 
     public function getSearchCriterias()

@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Catalog
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -24,6 +30,7 @@
  *
  * @category   Mage
  * @package    Mage_Catalog
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Catalog_Model_Resource_Eav_Mysql4_Category_Collection extends Mage_Catalog_Model_Resource_Eav_Mysql4_Collection_Abstract
 {
@@ -151,10 +158,23 @@ class Mage_Catalog_Model_Resource_Eav_Mysql4_Category_Collection extends Mage_Ca
      */
     protected function _loadProductCount()
     {
+        $this->loadProductCount($this->_items, true, true);
+    }
+
+    /**
+     * Load product count for specified items
+     *
+     * @param array $items
+     * @param boolean $countRegular get product count for regular (non-anchor) categories
+     * @param boolean $countAnchor get product count for anchor categories
+     * @return Mage_Catalog_Model_Resource_Eav_Mysql4_Category_Collection
+     */
+    public function loadProductCount($items, $countRegular = true, $countAnchor = true)
+    {
         $anchor     = array();
         $regular    = array();
 
-        foreach ($this->_items as $item) {
+        foreach ($items as $item) {
             if ($item->getIsAnchor()) {
                 $anchor[$item->getId()] = $item;
             } else {
@@ -162,39 +182,43 @@ class Mage_Catalog_Model_Resource_Eav_Mysql4_Category_Collection extends Mage_Ca
             }
         }
 
-        // Retrieve regular categories product counts
-        $regularIds = array_keys($regular);
-        if (!empty($regularIds)) {
-            $select = $this->_conn->select();
-            $select->from(
-                    array('main_table'=>$this->_productTable),
-                    array('category_id', new Zend_Db_Expr('COUNT(main_table.product_id)'))
-                )
-                ->where($this->_conn->quoteInto('main_table.category_id IN(?)', $regularIds))
-                ->group('main_table.category_id');
-            $counts = $this->_conn->fetchPairs($select);
-            foreach ($regular as $item) {
-                if (isset($counts[$item->getId()])) {
-                    $item->setProductCount($counts[$item->getId()]);
-                } else {
-                    $item->setProductCount(0);
+        if ($countRegular) {
+            // Retrieve regular categories product counts
+            $regularIds = array_keys($regular);
+            if (!empty($regularIds)) {
+                $select = $this->_conn->select();
+                $select->from(
+                        array('main_table'=>$this->_productTable),
+                        array('category_id', new Zend_Db_Expr('COUNT(main_table.product_id)'))
+                    )
+                    ->where($this->_conn->quoteInto('main_table.category_id IN(?)', $regularIds))
+                    ->group('main_table.category_id');
+                $counts = $this->_conn->fetchPairs($select);
+                foreach ($regular as $item) {
+                    if (isset($counts[$item->getId()])) {
+                        $item->setProductCount($counts[$item->getId()]);
+                    } else {
+                        $item->setProductCount(0);
+                    }
                 }
             }
         }
 
-        // Retrieve Anchor categories product counts
-        foreach ($anchor as $item) {
-            if ($allChildren = $item->getAllChildren()) {
-                $select = $this->_conn->select();
-                $select->from(
-                        array('main_table'=>$this->_productTable),
-                        new Zend_Db_Expr('COUNT( DISTINCT main_table.product_id)')
-                    )
-                    ->where($this->_conn->quoteInto('main_table.category_id IN(?)', explode(',', $item->getAllChildren())));
+        if ($countAnchor) {
+            // Retrieve Anchor categories product counts
+            foreach ($anchor as $item) {
+                if ($allChildren = $item->getAllChildren()) {
+                    $select = $this->_conn->select();
+                    $select->from(
+                            array('main_table'=>$this->_productTable),
+                            new Zend_Db_Expr('COUNT( DISTINCT main_table.product_id)')
+                        )
+                        ->where($this->_conn->quoteInto('main_table.category_id IN(?)', explode(',', $allChildren)));
 
-                $item->setProductCount((int) $this->_conn->fetchOne($select));
-            } else {
-                $item->setProductCount(0);
+                    $item->setProductCount((int) $this->_conn->fetchOne($select));
+                } else {
+                    $item->setProductCount(0);
+                }
             }
         }
         return $this;
@@ -219,11 +243,12 @@ class Mage_Catalog_Model_Resource_Eav_Mysql4_Category_Collection extends Mage_Ca
      */
     public function joinUrlRewrite()
     {
+        $storeId = Mage::app()->getStore()->getId();
         $this->joinTable(
             'core/url_rewrite',
             'category_id=entity_id',
             array('request_path'),
-            '{{table}}.is_system="1" AND {{table}}.product_id IS NULL AND {{table}}.store_id="'.Mage::app()->getStore()->getId().'"',
+            '{{table}}.is_system=1 AND {{table}}.product_id IS NULL AND {{table}}.store_id="'.$storeId.'" AND id_path LIKE "category/%"',
             'left'
         );
         return $this;

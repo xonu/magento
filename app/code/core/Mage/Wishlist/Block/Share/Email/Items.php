@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Wishlist
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -24,6 +30,7 @@
  *
  * @category   Mage
  * @package    Mage_Wishlist
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Wishlist_Block_Share_Email_Items extends Mage_Core_Block_Template
 {
@@ -47,7 +54,11 @@ class Mage_Wishlist_Block_Share_Email_Items extends Mage_Core_Block_Template
                 ->addAttributeToSelect('price')
                 ->addAttributeToSelect('image')
                 ->addAttributeToSelect('small_image')
-                ->addAttributeToFilter('store_id', array('in'=>Mage::registry('wishlist')->getSharedStoreIds()))
+                //->addAttributeToFilter('store_id', array('in'=>Mage::registry('wishlist')->getSharedStoreIds()))
+                ->addStoreFilter();
+            Mage::getSingleton('catalog/product_visibility')
+                ->addVisibleInSiteFilterToCollection(Mage::registry('wishlist')->getProductCollection());
+            Mage::registry('wishlist')->getProductCollection()
                 ->load();
 
             $this->_wishlistLoaded = true;
@@ -58,12 +69,12 @@ class Mage_Wishlist_Block_Share_Email_Items extends Mage_Core_Block_Template
 
     public function getEscapedDescription(Varien_Object $item)
     {
-        return nl2br($this->htmlEscape($item->getDescription()));
+        return nl2br($this->htmlEscape($item->getWishlistItemDescription()));
     }
 
     public function hasDescription(Varien_Object $item)
     {
-        return trim($item->getDescription())!='';
+        return trim($item->getWishlistItemDescription())!='';
     }
 
     public function getFormatedDate($date)

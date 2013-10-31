@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Rss
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -23,6 +29,7 @@
  *
  * @category   Mage
  * @package    Mage_Rss
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Rss_Block_Catalog_NotifyStock extends Mage_Rss_Block_Abstract
 {
@@ -48,15 +55,18 @@ class Mage_Rss_Block_Catalog_NotifyStock extends Mage_Rss_Block_Abstract
                 );
         $rssObj->_addHeader($data);
 
-        $stockItemWhere = "({{table}}.low_stock_date is not null) and ({{table}}.low_stock_date>'0000-00-00')";
+        $_configManageStock = (int)Mage::getStoreConfigFlag(Mage_CatalogInventory_Model_Stock_Item::XML_PATH_MANAGE_STOCK);
+        $stockItemWhere = "({{table}}.low_stock_date is not null) "
+            . " and ({{table}}.low_stock_date>'0000-00-00') "
+            . " and IF({{table}}.use_config_manage_stock=1," . $_configManageStock . ",{{table}}.manage_stock)=1";
 
         $product = Mage::getModel('catalog/product');
         $collection = $product->getCollection()
             ->addAttributeToSelect('name', true)
+            ->addAttributeToSelect('name', true)
             ->joinTable('cataloginventory/stock_item', 'product_id=entity_id', array('qty'=>'qty', 'notify_stock_qty'=>'notify_stock_qty', 'use_config' => 'use_config_notify_stock_qty','low_stock_date' => 'low_stock_date'), $stockItemWhere, 'inner')
             ->setOrder('low_stock_date')
         ;
-
         $_globalNotifyStockQty = (float) Mage::getStoreConfig(Mage_CatalogInventory_Model_Stock_Item::XML_PATH_NOTIFY_STOCK_QTY);
 
         /*

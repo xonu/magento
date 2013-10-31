@@ -12,13 +12,19 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_GoogleCheckout
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
-set_include_path(get_include_path().PS.Mage::getBaseDir('base').DS.'lib'.DS.'googlecheckout');
+set_include_path(get_include_path().PS.Mage::getBaseDir('lib').DS.'googlecheckout');
 
 require_once('googleresponse.php');
 require_once('googlemerchantcalculations.php');
@@ -29,7 +35,7 @@ abstract class Mage_GoogleCheckout_Model_Api_Xml_Abstract extends Varien_Object
 {
     public function log($text, $nl=true)
     {
-        error_log(print_r($text,1).($nl?"\n":''), 3, Mage::getBaseDir('var').DS.'callback.log');
+        error_log(print_r($text,1).($nl?"\n":''), 3, Mage::getBaseDir('log').DS.'callback.log');
         return $this;
     }
 
@@ -98,9 +104,10 @@ abstract class Mage_GoogleCheckout_Model_Api_Xml_Abstract extends Varien_Object
             ));
 
             //Setup the log file
+            $logDir = Mage::getBaseDir('log');
             $this->getData('g_request')->SetLogFiles(
-                Mage::getBaseDir('var').DS.'googleerror.log',
-                Mage::getBaseDir('var').DS.'googlemessage.log',
+                $logDir.DS.'googleerror.log',
+                $logDir.DS.'googlemessage.log',
                 L_ALL
             );
         }
@@ -121,9 +128,10 @@ abstract class Mage_GoogleCheckout_Model_Api_Xml_Abstract extends Varien_Object
             ));
 
             //Setup the log file
+            $logDir = Mage::getBaseDir('log');
             $this->getData('g_response')->SetLogFiles(
-                Mage::getBaseDir('var').DS.'googleerror.log',
-                Mage::getBaseDir('var').DS.'googlemessage.log',
+                $logDir.DS.'googleerror.log',
+                $logDir.DS.'googlemessage.log',
                 L_ALL
             );
         }
@@ -190,6 +198,6 @@ abstract class Mage_GoogleCheckout_Model_Api_Xml_Abstract extends Varien_Object
 
     protected function _getCallbackUrl()
     {
-        return Mage::getUrl('googlecheckout/api');
+        return Mage::getUrl('googlecheckout/api', array('_forced_secure'=>Mage::getStoreConfig('google/checkout/use_secure_callback_url')));
     }
 }

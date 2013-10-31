@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Install
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -23,6 +29,7 @@
  *
  * @category   Mage
  * @package    Mage_Install
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Install_Model_Installer_Db extends Mage_Install_Model_Installer_Abstract
 {
@@ -49,7 +56,15 @@ class Mage_Install_Model_Installer_Db extends Mage_Install_Model_Installer_Abstr
 
         try {
             $connection = Mage::getSingleton('core/resource')->createConnection('install', $this->_getConnenctionType(), $config);
-            $result = $connection->query('SELECT 1');
+            $result = $connection->query($connection->quoteInto('SHOW VARIABLES LIKE ?', 'version'));
+            $row = $result->fetch();
+            $version = $row['Value'];
+            preg_match("([0-9.]+)",$version,$toCompare);
+            $requiredVersion = (string)Mage::getSingleton('install/config')->getNode('check/mysql/version');
+
+            if (version_compare(isset($toCompare[0])?$toCompare[0]:$version, $requiredVersion) == -1) {
+                Mage::throwException(Mage::helper('install')->__('Database server version does not match system requirements (required: %s, actual: %s)', $requiredVersion, $version));
+            }
         }
         catch (Exception $e){
             $this->_getInstaller()->getDataModel()->addError($e->getMessage());

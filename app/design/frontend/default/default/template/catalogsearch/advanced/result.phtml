@@ -4,31 +4,37 @@
  *
  * NOTICE OF LICENSE
  *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
+ * This source file is subject to the Academic Free License (AFL 3.0)
+ * that is bundled with this package in the file LICENSE_AFL.txt.
  * It is also available through the world-wide-web at this URL:
- * http://opensource.org/licenses/osl-3.0.php
+ * http://opensource.org/licenses/afl-3.0.php
  * If you did not receive a copy of the license and are unable to
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   design_default
  * @package    Mage
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
- * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @license    http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
  */
 ?>
 <div class="page-head">
     <h3><?php echo $this->__('Catalog Advanced Search') ?></h3>
 </div>
-
+<?php echo $this->getMessagesBlock()->getGroupedHtml() ?>
 <?php if($this->getResultCount()): ?>
     <div class="advanced-search-found-amount">
         <?php echo $this->helper('catalogsearch')
             ->__('<b>%d item(s)</b> were found using the following search criteria', $this->getResultCount()); ?>
     </div>
 <?php else: ?>
-    <div class="advanced-search-nothing-found">No items were found using the following search criteria. <a href="<?php echo $this->getFormUrl(); ?>"><?php echo $this->helper('catalogsearch')->__('Modify your search'); ?></a></div>
+    <div class="advanced-search-nothing-found"><?php echo $this->helper('catalogsearch')->__('No items were found using the following search criteria.');?> <a href="<?php echo $this->getFormUrl(); ?>"><?php echo $this->helper('catalogsearch')->__('Modify your search'); ?></a></div>
 <?php endif; ?>
 
 <?php $searchCriterias=$this->getSearchCriterias(); ?>
@@ -37,7 +43,7 @@
         <?php if(@$searchCriterias[$side]): ?>
             <ul>
                 <?php foreach($searchCriterias[$side] as $criteria): ?>
-                    <li><span><?php echo $this->htmlEscape($criteria['name']); ?>:</span> <?php echo $this->htmlEscape($criteria['value']); ?></li>
+                    <li><span><?php echo $this->htmlEscape($this->helper('catalogsearch')->__($criteria['name'])); ?>:</span> <?php echo $this->htmlEscape($criteria['value']); ?></li>
                 <?php endforeach; ?>
             </ul>
         <?php endif; ?>
@@ -45,16 +51,11 @@
 
     <?php if($this->getResultCount()): ?>
         <div class="advanced-search-summary-tip">
-            Don't see what you're looking for?
+            <?php echo $this->helper('catalogsearch')->__("Don't see what you're looking for?"); ?>
             <a href="<?php echo $this->getFormUrl(); ?>"><?php echo $this->helper('catalogsearch')->__('Modify your search'); ?></a>
         </div>
     <?php endif; ?>
-    <div style="clear:both;"></div>
 </div>
-
-<br />
-
-
 <?php if($this->getResultCount()): ?>
     <?php echo $this->getProductListHtml() ?>
 <?php endif; ?>

@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_CatalogSearch
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -23,6 +29,7 @@
  *
  * @category   Mage
  * @package    Mage_CatalogSearch
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_CatalogSearch_Model_Advanced extends Varien_Object
 {
@@ -46,7 +53,7 @@ class Mage_CatalogSearch_Model_Advanced extends Varien_Object
                 ->setOrder('attribute_id', 'asc')
                 ->load();
             foreach ($attributes as $attribute) {
-            	$attribute->setEntity($product->getResource());
+                $attribute->setEntity($product->getResource());
             }
             $this->setData('attributes', $attributes);
         }
@@ -57,9 +64,13 @@ class Mage_CatalogSearch_Model_Advanced extends Varien_Object
         $attributes = $this->getAttributes();
         $allConditions = array();
         $filteredAttributes = array();
-        $indexFilters = Mage::getModel('catalogindex/indexer')->buildEntityFilter($attributes, $values, $filteredAttributes);
+        $indexFilters = Mage::getModel('catalogindex/indexer')->buildEntityFilter($attributes, $values, $filteredAttributes, $this->getProductCollection());
         foreach ($indexFilters as $filter) {
             $this->getProductCollection()->addFieldToFilter('entity_id', array('in'=>new Zend_Db_Expr($filter)));
+        }
+        $priceFilters = Mage::getModel('catalogindex/indexer')->buildEntityPriceFilter($attributes, $values, $filteredAttributes, $this->getProductCollection());
+        foreach ($priceFilters as $code=>$filter) {
+            $this->getProductCollection()->getSelect()->joinInner(array("_price_filter_{$code}"=>$filter), "`_price_filter_{$code}`.`entity_id` = `e`.`entity_id`", array());
         }
 
         foreach ($attributes as $attribute) {
@@ -86,11 +97,13 @@ class Mage_CatalogSearch_Model_Advanced extends Varien_Object
                         } else {
                             $condition = $value;
                         }
+                    } elseif ($attribute->getFrontendInput() == 'boolean') {
+                        $condition = array('in' => array(0,1));
                     }
                 }
             }
 
-            if ($condition) {
+            if (false !== $condition) {
                 $this->addSearchCriteria($attribute, $value);
 
                 if (in_array($code, $filteredAttributes))
@@ -120,15 +133,23 @@ class Mage_CatalogSearch_Model_Advanced extends Varien_Object
         $name = $attribute->getFrontend()->getLabel();
 
         if (is_array($value) && (isset($value['from']) || isset($value['to']))){
+            if (isset($value['currency'])) {
+                $currencyModel = Mage::getModel('directory/currency')->load($value['currency']);
+                $from = $currencyModel->format($value['from'], array(), false);
+                $to = $currencyModel->format($value['to'], array(), false);
+            } else {
+                $currencyModel = null;
+            }
+
             if ($value['from'] > 0 && $value['to'] > 0) {
                 // -
-                $value = sprintf('%s - %s', $value['from'], $value['to']);
+                $value = sprintf('%s - %s', ($currencyModel ? $from : $value['from']), ($currencyModel ? $to : $value['to']));
             } elseif ($value['from'] > 0) {
                 // and more
-                $value = Mage::helper('catalogsearch')->__('%s and greater', $value['from']);
+                $value = Mage::helper('catalogsearch')->__('%s and greater', ($currencyModel ? $from : $value['from']));
             } elseif ($value['to'] > 0) {
                 // to
-                $value = Mage::helper('catalogsearch')->__('up to %s', $value['to']);
+                $value = Mage::helper('catalogsearch')->__('up to %s', ($currencyModel ? $to : $value['to']));
             }
         }
 
@@ -142,7 +163,12 @@ class Mage_CatalogSearch_Model_Advanced extends Varien_Object
             $value = implode(', ', $value);
         } else if ($attribute->getFrontendInput() == 'select' || $attribute->getFrontendInput() == 'multiselect') {
             $value = $attribute->getSource()->getOptionText($value);
-            $value = $value['label'];
+            if (is_array($value))
+                $value = $value['label'];
+        } else if ($attribute->getFrontendInput() == 'boolean') {
+            $value = $value == 1
+                ? Mage::helper('catalogsearch')->__('Yes')
+                : Mage::helper('catalogsearch')->__('No');
         }
 
         $this->_searchCriterias[] = array('name'=>$name, 'value'=>$value);
@@ -156,15 +182,9 @@ class Mage_CatalogSearch_Model_Advanced extends Varien_Object
     public function getProductCollection(){
         if (is_null($this->_productCollection)) {
             $this->_productCollection = Mage::getResourceModel('catalogsearch/advanced_collection')
-                ->addAttributeToSelect('url_key')
-                ->addAttributeToSelect('name')
-                ->addAttributeToSelect('price')
-                ->addAttributeToSelect('special_price')
-                ->addAttributeToSelect('special_from_date')
-                ->addAttributeToSelect('special_to_date')
-                ->addAttributeToSelect('description')
-                ->addAttributeToSelect('image')
-                ->addAttributeToSelect('small_image')
+                ->addAttributeToSelect(Mage::getSingleton('catalog/config')->getProductAttributes())
+                ->addMinimalPrice()
+                ->addTaxPercents()
                 ->addStoreFilter();
                 Mage::getSingleton('catalog/product_status')->addVisibleFilterToCollection($this->_productCollection);
                 Mage::getSingleton('catalog/product_visibility')->addVisibleInSearchFilterToCollection($this->_productCollection);

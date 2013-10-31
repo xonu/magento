@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Reports
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -24,6 +30,7 @@
  *
  * @category   Mage
  * @package    Mage_Reports
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Reports_Model_Mysql4_Invoiced_Collection extends Mage_Sales_Model_Entity_Order_Collection
 {
@@ -48,15 +55,15 @@ class Mage_Reports_Model_Mysql4_Invoiced_Collection extends Mage_Sales_Model_Ent
             $this->addAttributeToFilter('store_id', array('in' => (array)$storeIds))
                 ->addExpressionAttributeToSelect(
                     'invoiced',
-                    'SUM({{base_total_invoiced}}',
+                    'SUM({{base_total_invoiced}})',
                     array('base_total_invoiced'))
                 ->addExpressionAttributeToSelect(
                     'invoiced_captured',
-                    'SUM({{base_total_paid}}',
+                    'SUM({{base_total_paid}})',
                     array('base_total_paid'))
                 ->addExpressionAttributeToSelect(
                     'invoiced_not_captured',
-                    'SUM({{base_total_invoiced}}-{{base_total_paid}}',
+                    'SUM({{base_total_invoiced}}-{{base_total_paid}})',
                     array('base_total_invoiced', 'base_total_paid'));
         } else {
             $this->addExpressionAttributeToSelect(

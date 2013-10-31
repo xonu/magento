@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Core
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -25,11 +31,11 @@ class Mage_Core_Model_Design_Source_Apply extends Mage_Eav_Model_Entity_Attribut
     {
         if (!$this->_options) {
             $optionArray = array(
-                1=>Mage::helper('core')->__('All'),
-                Mage::helper('core')->__('This category only'),
-                Mage::helper('core')->__('This category and its products'),
-                Mage::helper('core')->__('This category and its child categories')
-                );
+                1 => Mage::helper('core')->__('This category and all its child elements'),
+                3 => Mage::helper('core')->__('This category and its products only'),
+                4 => Mage::helper('core')->__('This category and its child categories only'),
+                2 => Mage::helper('core')->__('This category only')
+            );
 
             foreach ($optionArray as $k=>$label) {
                 $this->_options[] = array('value'=>$k, 'label'=>$label);

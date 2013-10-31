@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Install
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -64,14 +70,21 @@ class Mage_Install_Model_Installer_Config extends Mage_Install_Model_Installer_A
                 $data[$index] = $value;
             }
         }
-        /*
-        $data['base_path'] .= substr($data['base_path'],-1) != '/' ? '/' : '';
-        $data['secure_base_path'] .= substr($data['secure_base_path'],-1) != '/' ? '/' : '';
 
-        if (!$this->_getInstaller()->getDataModel()->getSkipUrlValidation()) {
-            $this->_checkHostsInfo($data);
+        if (isset($data['unsecure_base_url'])) {
+            $data['unsecure_base_url'] .= substr($data['unsecure_base_url'],-1) != '/' ? '/' : '';
+            if (!$this->_getInstaller()->getDataModel()->getSkipBaseUrlValidation()) {
+                $this->_checkUrl($data['unsecure_base_url']);
+            }
         }
-        */
+        if (isset($data['secure_base_url'])) {
+            $data['secure_base_url'] .= substr($data['secure_base_url'],-1) != '/' ? '/' : '';
+
+            if (!empty($data['use_secure'])
+                && !$this->_getInstaller()->getDataModel()->getSkipUrlValidation()) {
+                $this->_checkUrl($data['secure_base_url']);
+            }
+        }
 
         $data['date']   = self::TMP_INSTALL_DATE_VALUE;
         $data['key']    = self::TMP_ENCRYPT_KEY_VALUE;
@@ -87,21 +100,18 @@ class Mage_Install_Model_Installer_Config extends Mage_Install_Model_Installer_A
         }
         file_put_contents($this->_localConfigFile, $template);
         chmod($this->_localConfigFile, 0777);
-        /**
-         * New config initialization we do on install db action
-         */
-        //Mage::getConfig()->init();
     }
 
     public function getFormData()
     {
         $uri = Zend_Uri::factory(Mage::getBaseUrl('web'));
 
+        $baseUrl = $uri->getUri();
         if ($uri->getScheme()!=='https') {
             $uri->setPort(null);
-            $baseUrl = str_replace('http://', 'https://', $uri->getUri());
+            $baseSecureUrl = str_replace('http://', 'https://', $uri->getUri());
         } else {
-            $baseUrl = $uri->getUri();
+            $baseSecureUrl = $uri->getUri();
         }
 
         $data = Mage::getModel('varien/object')
@@ -109,7 +119,9 @@ class Mage_Install_Model_Installer_Config extends Mage_Install_Model_Installer_A
             ->setDbName('magento')
             ->setDbUser('root')
             ->setDbPass('')
-            ->setSecureBaseUrl($baseUrl)
+            ->setSecureBaseUrl($baseSecureUrl)
+            ->setUnsecureBaseUrl($baseUrl)
+            ->setAdminFrontname('admin')
         ;
         return $data;
     }
@@ -128,7 +140,7 @@ class Mage_Install_Model_Installer_Config extends Mage_Install_Model_Installer_A
     protected function _checkUrl($url, $secure=false)
     {
         $prefix = $secure ? 'install/wizard/checkSecureHost/' : 'install/wizard/checkHost/';
-        $client = new Varien_Http_Client($url.$prefix);
+        $client = new Varien_Http_Client($url.'index.php/'.$prefix);
         try {
             $response = $client->request('GET');
             /* @var $responce Zend_Http_Response */

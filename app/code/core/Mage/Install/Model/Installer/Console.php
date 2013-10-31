@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Install
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -23,6 +29,7 @@
  * Console installer
  * @category   Mage
  * @package    Mage_Install
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Install_Model_Installer_Console extends Mage_Install_Model_Installer_Abstract
 {
@@ -65,15 +72,16 @@ class Mage_Install_Model_Installer_Console extends Mage_Install_Model_Installer_
         if (is_null($this->_options)) {
             $this->_options = array(
                 'license_agreement_accepted'    => array('required' => true, 'comment' => ''),
-                'locale'            => array('required' => true, 'comment' => ''),
-                'timezone'          => array('required' => true, 'comment' => ''),
-                'default_currency'  => array('required' => true, 'comment' => ''),
-                'db_host'           => array('required' => true, 'comment' => ''),
-                'db_name'           => array('required' => true, 'comment' => ''),
-                'db_user'           => array('required' => true, 'comment' => ''),
-                'db_pass'           => array('comment' => ''),
-                'db_prefix'         => array('comment' => ''),
-                'url'               => array('required' => true, 'comment' => ''),
+                'locale'              => array('required' => true, 'comment' => ''),
+                'timezone'            => array('required' => true, 'comment' => ''),
+                'default_currency'    => array('required' => true, 'comment' => ''),
+                'db_host'             => array('required' => true, 'comment' => ''),
+                'db_name'             => array('required' => true, 'comment' => ''),
+                'db_user'             => array('required' => true, 'comment' => ''),
+                'db_pass'             => array('comment' => ''),
+                'db_prefix'           => array('comment' => ''),
+                'url'                 => array('required' => true, 'comment' => ''),
+                'skip_url_validation' => array('comment' => ''),
                 'use_rewrites'      => array('required' => true, 'comment' => ''),
                 'use_secure'        => array('required' => true, 'comment' => ''),
                 'secure_base_url'   => array('required' => true, 'comment' => ''),
@@ -84,6 +92,8 @@ class Mage_Install_Model_Installer_Console extends Mage_Install_Model_Installer_
                 'admin_username'    => array('required' => true, 'comment' => ''),
                 'admin_password'    => array('required' => true, 'comment' => ''),
                 'encryption_key'    => array('comment' => ''),
+                'session_save'      => array('comment' => ''),
+                'admin_frontname'   => array('comment' => ''),
             );
         }
         return $this->_options;
@@ -276,16 +286,19 @@ class Mage_Install_Model_Installer_Console extends Mage_Install_Model_Installer_
          * Database and web config
          */
         $this->_getDataModel()->setConfigData(array(
-            'db_host'           => $this->_args['db_host'],
-            'db_name'           => $this->_args['db_name'],
-            'db_user'           => $this->_args['db_user'],
-            'db_pass'           => $this->_args['db_pass'],
-            'db_prefix'         => $this->_args['db_prefix'],
-            'use_rewrites'      => $this->_checkFlag($this->_args['use_rewrites']),
-            'use_secure'        => $this->_checkFlag($this->_args['use_secure']),
-            'unsecure_base_url' => $this->_args['url'],
-            'secure_base_url'   => $this->_args['secure_base_url'],
-            'use_secure_admin'  => $this->_checkFlag($this->_args['use_secure_admin']),
+            'db_host'             => $this->_args['db_host'],
+            'db_name'             => $this->_args['db_name'],
+            'db_user'             => $this->_args['db_user'],
+            'db_pass'             => $this->_args['db_pass'],
+            'db_prefix'           => $this->_args['db_prefix'],
+            'use_rewrites'        => $this->_checkFlag($this->_args['use_rewrites']),
+            'use_secure'          => $this->_checkFlag($this->_args['use_secure']),
+            'unsecure_base_url'   => $this->_args['url'],
+            'secure_base_url'     => $this->_args['secure_base_url'],
+            'use_secure_admin'    => $this->_checkFlag($this->_args['use_secure_admin']),
+            'session_save'        => $this->_checkSessionSave($this->_args['session_save']),
+            'admin_frontname'     => $this->_checkAdminFrontname($this->_args['admin_frontname']),
+            'skip_url_validation' => $this->_checkFlag($this->_args['skip_url_validation']),
         ));
 
         /**
@@ -318,6 +331,12 @@ class Mage_Install_Model_Installer_Console extends Mage_Install_Model_Installer_
                 $this->addError('ERROR: Magento is already installed');
                 return false;
             }
+
+            /**
+             * Skip URL validation, if set
+             */
+            $this->_getDataModel()->setSkipUrlValidation($this->_args['skip_url_validation']);
+            $this->_getDataModel()->setSkipBaseUrlValidation($this->_args['skip_url_validation']);
 
             /**
              * Prepare data

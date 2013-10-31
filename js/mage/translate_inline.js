@@ -3,18 +3,24 @@
  *
  * NOTICE OF LICENSE
  *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
+ * This source file is subject to the Academic Free License (AFL 3.0)
+ * that is bundled with this package in the file LICENSE_AFL.txt.
  * It is also available through the world-wide-web at this URL:
- * http://opensource.org/licenses/osl-3.0.php
+ * http://opensource.org/licenses/afl-3.0.php
  * If you did not receive a copy of the license and are unable to
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Js
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
- * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @license    http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
  */
 
 var TranslateInline = Class.create();
@@ -27,7 +33,8 @@ TranslateInline.prototype = {
         this.trigContentEl = null;
 
         $$('*[translate]').each(this.initializeElement.bind(this));
-
+        var scope = this;
+        Ajax.Responders.register({onComplete: function() {setTimeout(scope.reinitElements.bind(scope), 50)}});
         this.trigEl = $(trigEl);
         this.trigEl.observe('mouseover', this.trigHideClear.bind(this));
         this.trigEl.observe('mouseout', this.trigHideDelayed.bind(this));
@@ -37,9 +44,16 @@ TranslateInline.prototype = {
     },
 
     initializeElement: function(el) {
-        el.addClassName('translate-inline');
-        Event.observe(el, 'mouseover', this.trigShow.bind(this, el));
-        Event.observe(el, 'mouseout', this.trigHideDelayed.bind(this));
+        if(!el.initializedTranslate) {
+            el.addClassName('translate-inline');
+            el.initializedTranslate = true;
+            Event.observe(el, 'mouseover', this.trigShow.bind(this, el));
+            Event.observe(el, 'mouseout', this.trigHideDelayed.bind(this));
+        }
+    },
+
+    reinitElements: function (el) {
+        $$('*[translate]').each(this.initializeElement.bind(this));
     },
 
     trigShow: function (el) {
@@ -140,7 +154,14 @@ TranslateInline.prototype = {
 
         var inputs = $('translate-inline-form').getInputs(), parameters = {};
         for (var i=0; i<inputs.length; i++) {
-            parameters[inputs[i].name] = inputs[i].value;
+            if (inputs[i].type == 'checkbox') {
+                if (inputs[i].checked) {
+                    parameters[inputs[i].name] = inputs[i].value;
+                }
+            }
+            else {
+                parameters[inputs[i].name] = inputs[i].value;
+            }
         }
         parameters['area'] = this.area;
 

@@ -12,9 +12,15 @@
  * obtain it through the world-wide-web, please send an email
  * to license@magentocommerce.com so we can send you a copy immediately.
  *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade Magento to newer
+ * versions in the future. If you wish to customize Magento for your
+ * needs please refer to http://www.magentocommerce.com for more information.
+ *
  * @category   Mage
  * @package    Mage_Adminhtml
- * @copyright  Copyright (c) 2004-2007 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
+ * @copyright  Copyright (c) 2008 Irubin Consulting Inc. DBA Varien (http://www.varien.com)
  * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -23,6 +29,7 @@
  *
  * @category   Mage
  * @package    Mage_Adminhtml
+ * @author      Magento Core Team <core@magentocommerce.com>
  */
 class Mage_Adminhtml_Block_Widget_Grid_Column extends Mage_Adminhtml_Block_Widget
 {
@@ -89,7 +96,7 @@ class Mage_Adminhtml_Block_Widget_Grid_Column extends Mage_Adminhtml_Block_Widge
     {
         $class = $this->getData('header_css_class');
         if (($this->getSortable()===false) || ($this->getGrid()->getSortable()===false)) {
-            $class .= ' no-link';
+            $class .= 'no-link';
         }
         if ($this->isLast()) {
             $class .= ' last';
@@ -119,6 +126,17 @@ class Mage_Adminhtml_Block_Widget_Grid_Column extends Mage_Adminhtml_Block_Widge
     public function getRowField(Varien_Object $row)
     {
         return $this->getRenderer()->render($row);
+    }
+
+    /**
+     * Retrieve row column field value for export
+     *
+     * @param   Varien_Object $row
+     * @return  string
+     */
+    public function getRowFieldExport(Varien_Object $row)
+    {
+        return $this->getRenderer()->renderExport($row);
     }
 
     public function setRenderer($renderer)
@@ -188,6 +206,11 @@ class Mage_Adminhtml_Block_Widget_Grid_Column extends Mage_Adminhtml_Block_Widge
         return $rendererClass;
     }
 
+    /**
+     * Retrieve column renderer
+     *
+     * @return Mage_Adminhtml_Block_Widget_Grid_Column_Renderer_Abstract
+     */
     public function getRenderer()
     {
         if (!$this->_renderer) {
@@ -275,8 +298,21 @@ class Mage_Adminhtml_Block_Widget_Grid_Column extends Mage_Adminhtml_Block_Widge
         if ($this->getFilter()) {
             return $this->getFilter()->getHtml();
         } else {
-            return '<div style="width: 100%;">&nbsp;</div>';
+            return '&nbsp;';
         }
         return null;
+    }
+
+    /**
+     * Retrieve Header Name for Export
+     *
+     * @return string
+     */
+    public function getExportHeader()
+    {
+        if ($this->getHeaderExport()) {
+            return $this->getHeaderExport();
+        }
+        return $this->getHeader();
     }
 }
